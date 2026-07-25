@@ -1,0 +1,31 @@
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  app.setGlobalPrefix('api', { exclude: ['health'] });
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, transform: true }),
+  );
+  app.enableCors({ origin: true, credentials: true });
+
+  // OpenAPI / Swagger — the web UI is just the first client of this API.
+  const config = new DocumentBuilder()
+    .setTitle('OpenBooks API')
+    .setDescription('Self-hosted small-business accounting')
+    .setVersion('0.0.1')
+    .addBearerAuth()
+    .build();
+  const doc = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, doc);
+
+  const port = Number(process.env.API_PORT ?? 3000);
+  await app.listen(port, '0.0.0.0');
+  // eslint-disable-next-line no-console
+  console.log(`OpenBooks API listening on :${port}  (docs at /docs)`);
+}
+
+bootstrap();

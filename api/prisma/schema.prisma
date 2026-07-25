@@ -1,0 +1,802 @@
+// ============================================================================
+// OpenBooks — Prisma schema (accounting core, design draft v0.1)
+// Target: PostgreSQL 16+
+//
+// NOTES
+//  * Money is ALWAYS Decimal(19,4). Never Float. See design doc §4.1.
+//  * Prisma cannot express two critical guarantees; they live in a companion
+//    SQL migration (see accounting_core_constraints.sql):
+//       1. Row-Level Security (tenant isolation by company_id) — doc §4.2
+//       2. The debit == credit balance invariant per journal entry — doc §5.1
+//  * Every tenant-scoped table carries companyId so RLS can filter it.
+//  * Posted journal entries are immutable at the app layer; corrections are
+//    made via reversing entries (see JournalEntry.reversalOfId).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// TENANCY & IDENTITY  (doc §4.2, §8)
+// ============================================================================
+
+/// Top-level ownership / billing boundary. Owns many companies.
+model Organization {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  companies   Company[]
+  memberships Membership[]
+  roles       Role[]
+
+  @@map("organization")
+}
+
+/// A single business (tenant). Almost everything is scoped to a Company.
+model Company {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  legalName      String
+  dba            String?
+  ein            String?  // stored encrypted at app layer (doc §13)
+  email          String?
+  phone          String?
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  region         String?  // state/province
+  postalCode     String?
+  country        String   @default("US")
+  logoStorageKey String?  // object-storage key for invoice branding
+  baseCurrency   String   @default("USD") @db.Char(3)
+  fiscalYearStartMonth Int @default(1) // 1 = January
+  settings       Json     @default("{}") // numbering, feature toggles, etc.
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships   Membership[]
+  accounts      Account[]
+  journalEntries JournalEntry[]
+  customers     Customer[]
+  vendors       Vendor[]
+  items         Item[]
+  invoices      Invoice[]
+  bills         Bill[]
+  payments      Payment[]
+  taxAgencies   TaxAgency[]
+  taxRates      TaxRate[]
+  bankAccounts  BankAccount[]
+  bankTransactions BankTransaction[]
+  reconciliations Reconciliation[]
+  employees     Employee[]
+  payrollRuns   PayrollRun[]
+  attachments   Attachment[]
+  auditLogs     AuditLog[]
+
+  @@index([organizationId])
+  @@map("company")
+}
+
+/// A person who can log in. Provisioned just-in-time from OIDC (doc §8.1).
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  oidcSubject   String?  @unique // maps to the OIDC `sub` claim
+  email         String   @unique
+  fullName      String?
+  isSystemAdmin Boolean  @default(false) // break-glass local admin
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships    Membership[]
+  createdEntries JournalEntry[] @relation("JournalEntryCreatedBy")
+  uploads        Attachment[]
+
+  @@map("app_user")
+}
+
+/// A role is a named bundle of permissions. Org-defined or system template.
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid // null = system template role
+  name           String   // Owner, Accountant, Bookkeeper, Read-only, ...
+  description    String?
+  isSystem       Boolean  @default(false)
+  permissions    String[] // e.g. ["invoice:create","journal:post","report:view"]
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+
+  @@unique([organizationId, name])
+  @@map("role")
+}
+
+/// (User × Company × Role) — a user can hold different roles per company. doc §8.2
+model Membership {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  companyId      String   @db.Uuid
+  organizationId String   @db.Uuid
+  roleId         String   @db.Uuid
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@map("membership")
+}
+
+// ============================================================================
+// CHART OF ACCOUNTS  (doc §5.2)
+// ============================================================================
+
+enum AccountType {
+  asset
+  liability
+  equity
+  income
+  expense
+}
+
+/// Fine-grained classification that drives reports and system behavior.
+enum AccountSubtype {
+  // assets
+  bank
+  accounts_receivable
+  undeposited_funds
+  inventory
+  fixed_asset
+  other_current_asset
+  other_asset
+  // liabilities
+  accounts_payable
+  credit_card
+  sales_tax_payable
+  payroll_liability
+  other_current_liability
+  long_term_liability
+  // equity
+  retained_earnings
+  opening_balance_equity
+  owners_equity
+  // income
+  income
+  other_income
+  // expense
+  cost_of_goods_sold
+  expense
+  other_expense
+}
+
+model Account {
+  id         String         @id @default(uuid()) @db.Uuid
+  companyId  String         @db.Uuid
+  code       String         // e.g. "1010"
+  name       String
+  type       AccountType
+  subtype    AccountSubtype
+  parentId   String?        @db.Uuid // sub-account hierarchy
+  currency   String         @default("USD") @db.Char(3)
+  isActive   Boolean        @default(true)
+  isSystem   Boolean        @default(false) // AR, AP, Retained Earnings, etc. — protected
+  description String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent       Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children     Account[]      @relation("AccountHierarchy")
+  journalLines JournalLine[]
+  bankAccount  BankAccount?
+  invoiceLines InvoiceLine[]
+  billLines    BillLine[]
+
+  @@unique([companyId, code])
+  @@index([companyId, type])
+  @@map("account")
+}
+
+// ============================================================================
+// THE LEDGER  (doc §5.1) — the source of truth. Everything posts here.
+// ============================================================================
+
+enum JournalSource {
+  manual
+  invoice
+  bill
+  payment
+  bank
+  payroll
+  reconciliation
+  opening_balance
+}
+
+enum JournalStatus {
+  draft
+  posted
+  void
+}
+
+model JournalEntry {
+  id          String        @id @default(uuid()) @db.Uuid
+  companyId   String        @db.Uuid
+  entryDate   DateTime      @db.Date
+  memo        String?
+  sourceType  JournalSource @default(manual)
+  sourceId    String?       @db.Uuid // link back to invoice/bill/payment/etc.
+  status      JournalStatus @default(draft)
+  currency    String        @default("USD") @db.Char(3)
+  createdById String?       @db.Uuid
+  postedAt    DateTime?
+  // For corrections: this entry reverses another (immutability, doc §5.1).
+  reversalOfId String?      @db.Uuid @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy  User?         @relation("JournalEntryCreatedBy", fields: [createdById], references: [id])
+  reversalOf JournalEntry? @relation("JournalReversal", fields: [reversalOfId], references: [id])
+  reversedBy JournalEntry? @relation("JournalReversal")
+  lines      JournalLine[]
+
+  @@index([companyId, entryDate])
+  @@index([companyId, sourceType, sourceId])
+  @@map("journal_entry")
+}
+
+/// One leg of an entry. Exactly one of debit/credit is > 0 (CHECK in SQL).
+/// SUM(debit) == SUM(credit) per entry is enforced by trigger (see SQL file).
+model JournalLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid // denormalized for RLS + indexing
+  journalEntryId String   @db.Uuid
+  accountId      String   @db.Uuid
+  debit          Decimal  @default(0) @db.Decimal(19, 4)
+  credit         Decimal  @default(0) @db.Decimal(19, 4)
+  memo           String?
+  // Optional link to a subledger entity for AR/AP/payroll aging.
+  entityType     EntityType?
+  entityId       String?  @db.Uuid
+  // Reporting dimensions (class / location / project). doc §11 phase 2.
+  dimensions     Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  entry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([companyId, accountId])
+  @@index([entityType, entityId])
+  @@map("journal_line")
+}
+
+enum EntityType {
+  customer
+  vendor
+  employee
+}
+
+// ============================================================================
+// SALES SUBLEDGER (AR)  (doc §5.3)
+// ============================================================================
+
+model Customer {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  displayName  String
+  companyName  String?
+  email        String?
+  phone        String?
+  billingAddress Json?
+  isActive     Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+  payments Payment[]
+
+  @@index([companyId])
+  @@map("customer")
+}
+
+enum InvoiceStatus {
+  draft
+  open
+  partially_paid
+  paid
+  void
+}
+
+model Invoice {
+  id           String        @id @default(uuid()) @db.Uuid
+  companyId    String        @db.Uuid
+  customerId   String        @db.Uuid
+  number       String        // per-company sequence
+  status       InvoiceStatus @default(draft)
+  issueDate    DateTime      @db.Date
+  dueDate      DateTime?     @db.Date
+  currency     String        @default("USD") @db.Char(3)
+  subtotal     Decimal       @default(0) @db.Decimal(19, 4)
+  taxTotal     Decimal       @default(0) @db.Decimal(19, 4)
+  total        Decimal       @default(0) @db.Decimal(19, 4)
+  amountPaid   Decimal       @default(0) @db.Decimal(19, 4)
+  balanceDue   Decimal       @default(0) @db.Decimal(19, 4)
+  memo         String?
+  journalEntryId String?     @db.Uuid @unique // GL posting when finalized
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  company   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer  Customer            @relation(fields: [customerId], references: [id])
+  lines     InvoiceLine[]
+  taxLines  InvoiceTaxLine[]
+  applications PaymentApplication[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([customerId])
+  @@map("invoice")
+}
+
+model InvoiceLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  invoiceId   String   @db.Uuid
+  itemId      String?  @db.Uuid
+  accountId   String   @db.Uuid // income account credited
+  description String?
+  quantity    Decimal  @default(1) @db.Decimal(19, 4)
+  unitPrice   Decimal  @default(0) @db.Decimal(19, 4)
+  amount      Decimal  @default(0) @db.Decimal(19, 4)
+  taxRateId   String?  @db.Uuid
+  sortOrder   Int      @default(0)
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item    Item?    @relation(fields: [itemId], references: [id])
+  account Account  @relation(fields: [accountId], references: [id])
+  taxRate TaxRate? @relation(fields: [taxRateId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_line")
+}
+
+model InvoiceTaxLine {
+  id        String  @id @default(uuid()) @db.Uuid
+  companyId String  @db.Uuid
+  invoiceId String  @db.Uuid
+  taxRateId String  @db.Uuid
+  taxable   Decimal @default(0) @db.Decimal(19, 4)
+  taxAmount Decimal @default(0) @db.Decimal(19, 4)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  taxRate TaxRate @relation(fields: [taxRateId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_tax_line")
+}
+
+// ============================================================================
+// EXPENSES SUBLEDGER (AP)  (doc §5.3)
+// ============================================================================
+
+model Vendor {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  displayName String
+  companyName String?
+  email       String?
+  phone       String?
+  address     Json?
+  is1099      Boolean  @default(false) // year-end 1099 tracking (doc §11)
+  taxId       String?  // encrypted at app layer
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bills    Bill[]
+  payments Payment[]
+
+  @@index([companyId])
+  @@map("vendor")
+}
+
+enum BillStatus {
+  draft
+  open
+  partially_paid
+  paid
+  void
+}
+
+model Bill {
+  id           String     @id @default(uuid()) @db.Uuid
+  companyId    String     @db.Uuid
+  vendorId     String     @db.Uuid
+  number       String?    // vendor's reference number
+  status       BillStatus @default(draft)
+  issueDate    DateTime   @db.Date
+  dueDate      DateTime?  @db.Date
+  currency     String     @default("USD") @db.Char(3)
+  subtotal     Decimal    @default(0) @db.Decimal(19, 4)
+  taxTotal     Decimal    @default(0) @db.Decimal(19, 4)
+  total        Decimal    @default(0) @db.Decimal(19, 4)
+  amountPaid   Decimal    @default(0) @db.Decimal(19, 4)
+  balanceDue   Decimal    @default(0) @db.Decimal(19, 4)
+  memo         String?
+  journalEntryId String?  @db.Uuid @unique
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vendor       Vendor               @relation(fields: [vendorId], references: [id])
+  lines        BillLine[]
+  applications PaymentApplication[]
+
+  @@index([companyId, status])
+  @@index([vendorId])
+  @@map("bill")
+}
+
+model BillLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @db.Uuid
+  billId      String   @db.Uuid
+  itemId      String?  @db.Uuid
+  accountId   String   @db.Uuid // expense/asset account debited
+  description String?
+  quantity    Decimal  @default(1) @db.Decimal(19, 4)
+  unitPrice   Decimal  @default(0) @db.Decimal(19, 4)
+  amount      Decimal  @default(0) @db.Decimal(19, 4)
+  taxRateId   String?  @db.Uuid
+  sortOrder   Int      @default(0)
+
+  bill    Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  item    Item?    @relation(fields: [itemId], references: [id])
+  account Account  @relation(fields: [accountId], references: [id])
+  taxRate TaxRate? @relation(fields: [taxRateId], references: [id])
+
+  @@index([billId])
+  @@map("bill_line")
+}
+
+// ============================================================================
+// PAYMENTS  (doc §5.3) — many-to-many between payments and invoices/bills
+// ============================================================================
+
+enum PaymentDirection {
+  received // customer pays us -> AR
+  paid     // we pay a vendor  -> AP
+}
+
+model Payment {
+  id             String           @id @default(uuid()) @db.Uuid
+  companyId      String           @db.Uuid
+  direction      PaymentDirection
+  customerId     String?          @db.Uuid
+  vendorId       String?          @db.Uuid
+  paymentDate    DateTime         @db.Date
+  amount         Decimal          @default(0) @db.Decimal(19, 4)
+  unappliedAmount Decimal         @default(0) @db.Decimal(19, 4)
+  currency       String           @default("USD") @db.Char(3)
+  method         String?          // check, ach, card, cash
+  reference      String?
+  depositAccountId String?        @db.Uuid // bank or undeposited funds
+  journalEntryId String?          @db.Uuid @unique
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer     Customer?            @relation(fields: [customerId], references: [id])
+  vendor       Vendor?              @relation(fields: [vendorId], references: [id])
+  applications PaymentApplication[]
+
+  @@index([companyId, direction])
+  @@map("payment")
+}
+
+/// Applies part of a payment to a specific invoice or bill.
+model PaymentApplication {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  paymentId  String   @db.Uuid
+  invoiceId  String?  @db.Uuid
+  billId     String?  @db.Uuid
+  amount     Decimal  @default(0) @db.Decimal(19, 4)
+  createdAt  DateTime @default(now())
+
+  payment Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+  bill    Bill?    @relation(fields: [billId], references: [id])
+
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@index([billId])
+  @@map("payment_application")
+}
+
+// ============================================================================
+// ITEMS & TAX  (doc §5.3)
+// ============================================================================
+
+enum ItemType {
+  service
+  product
+  bundle
+}
+
+model Item {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @db.Uuid
+  name            String
+  sku             String?
+  type            ItemType @default(service)
+  description     String?
+  unitPrice       Decimal? @db.Decimal(19, 4)
+  incomeAccountId String?  @db.Uuid
+  expenseAccountId String? @db.Uuid
+  inventoryAccountId String? @db.Uuid
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceLines InvoiceLine[]
+  billLines    BillLine[]
+
+  @@unique([companyId, sku])
+  @@index([companyId])
+  @@map("item")
+}
+
+model TaxAgency {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  name      String    // e.g. "State of Ohio"
+  createdAt DateTime  @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taxRates TaxRate[]
+
+  @@index([companyId])
+  @@map("tax_agency")
+}
+
+model TaxRate {
+  id                String  @id @default(uuid()) @db.Uuid
+  companyId         String  @db.Uuid
+  agencyId          String  @db.Uuid
+  name              String  // "OH Sales Tax 7.5%"
+  rate              Decimal @db.Decimal(9, 6) // 0.075000
+  liabilityAccountId String @db.Uuid // sales_tax_payable account
+  isActive          Boolean @default(true)
+
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  agency         TaxAgency        @relation(fields: [agencyId], references: [id])
+  invoiceLines   InvoiceLine[]
+  billLines      BillLine[]
+  invoiceTaxLines InvoiceTaxLine[]
+
+  @@index([companyId])
+  @@map("tax_rate")
+}
+
+// ============================================================================
+// BANKING & RECONCILIATION  (doc §5.4, §9)
+// ============================================================================
+
+enum BankFeedProvider {
+  simplefin
+  plaid
+  file_import
+  manual
+}
+
+model BankAccount {
+  id            String           @id @default(uuid()) @db.Uuid
+  companyId     String           @db.Uuid
+  accountId     String           @unique @db.Uuid // the GL account (subtype=bank/credit_card)
+  provider      BankFeedProvider @default(manual)
+  externalId    String?          // provider account id
+  accessToken   String?          // encrypted at app layer (doc §13)
+  lastSyncCursor String?
+  lastSyncedAt  DateTime?
+  institution   String?
+  mask          String?          // last 4
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  account         Account           @relation(fields: [accountId], references: [id])
+  transactions    BankTransaction[]
+  reconciliations Reconciliation[]
+
+  @@index([companyId])
+  @@map("bank_account")
+}
+
+enum BankTxnStatus {
+  unmatched
+  matched
+  ignored
+}
+
+model BankTransaction {
+  id             String        @id @default(uuid()) @db.Uuid
+  companyId      String        @db.Uuid
+  bankAccountId  String        @db.Uuid
+  externalId     String?       // provider txn id for idempotent import
+  postedDate     DateTime      @db.Date
+  amount         Decimal       @db.Decimal(19, 4) // signed: + inflow, - outflow
+  description    String?
+  status         BankTxnStatus @default(unmatched)
+  // When accepted, the created/matched GL entry.
+  journalEntryId String?       @db.Uuid
+  reconciliationId String?     @db.Uuid
+  raw            Json?         // original provider payload
+  createdAt      DateTime      @default(now())
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bankAccount    BankAccount     @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  reconciliation Reconciliation? @relation(fields: [reconciliationId], references: [id])
+
+  @@unique([bankAccountId, externalId])
+  @@index([companyId, status])
+  @@map("bank_transaction")
+}
+
+enum ReconciliationStatus {
+  in_progress
+  completed
+}
+
+model Reconciliation {
+  id             String               @id @default(uuid()) @db.Uuid
+  companyId      String               @db.Uuid
+  bankAccountId  String               @db.Uuid
+  statementDate  DateTime             @db.Date
+  beginningBalance Decimal            @db.Decimal(19, 4)
+  endingBalance  Decimal              @db.Decimal(19, 4)
+  status         ReconciliationStatus @default(in_progress)
+  completedAt    DateTime?
+  createdAt      DateTime             @default(now())
+
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount       @relation(fields: [bankAccountId], references: [id])
+  transactions BankTransaction[]
+
+  @@index([companyId])
+  @@map("reconciliation")
+}
+
+// ============================================================================
+// EMPLOYEES & LIGHT PAYROLL  (doc §6, §12) — manual runs, no tax calc
+// ============================================================================
+
+model Employee {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @db.Uuid
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  address       Json?
+  ssnEncrypted  String?  // encrypted at app layer (doc §13)
+  bankAccountEncrypted String? // direct deposit, encrypted
+  hireDate      DateTime? @db.Date
+  payType       String?  // salary | hourly
+  payRate       Decimal? @db.Decimal(19, 4)
+  filingStatus  String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payrollLines PayrollLine[]
+
+  @@index([companyId])
+  @@map("employee")
+}
+
+model PayrollRun {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @db.Uuid
+  payDate      DateTime @db.Date
+  periodStart  DateTime @db.Date
+  periodEnd    DateTime @db.Date
+  status       String   @default("draft") // draft | posted
+  grossTotal   Decimal  @default(0) @db.Decimal(19, 4)
+  netTotal     Decimal  @default(0) @db.Decimal(19, 4)
+  journalEntryId String? @db.Uuid @unique
+  createdAt    DateTime @default(now())
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines   PayrollLine[]
+
+  @@index([companyId])
+  @@map("payroll_run")
+}
+
+/// One employee's figures within a run. All amounts entered manually (doc §12).
+model PayrollLine {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyId         String   @db.Uuid
+  payrollRunId      String   @db.Uuid
+  employeeId        String   @db.Uuid
+  gross             Decimal  @default(0) @db.Decimal(19, 4)
+  employeeTaxes     Decimal  @default(0) @db.Decimal(19, 4) // withheld
+  employerTaxes     Decimal  @default(0) @db.Decimal(19, 4)
+  deductions        Decimal  @default(0) @db.Decimal(19, 4) // benefits, etc.
+  net               Decimal  @default(0) @db.Decimal(19, 4)
+  detail            Json     @default("{}") // breakdown of tax/deduction lines
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+
+  @@index([payrollRunId])
+  @@index([employeeId])
+  @@map("payroll_line")
+}
+
+// ============================================================================
+// ATTACHMENTS  (doc §10) — files live in object storage; DB holds metadata
+// ============================================================================
+
+model Attachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  entityType String   // "invoice" | "bill" | "journal_entry" | "bank_transaction" | ...
+  entityId   String   @db.Uuid
+  filename   String
+  mimeType   String
+  sizeBytes  BigInt
+  storageKey String   // S3/MinIO object key (namespaced by company)
+  checksum   String?  // SHA-256
+  uploadedById String? @db.Uuid
+  createdAt  DateTime @default(now())
+
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation(fields: [uploadedById], references: [id])
+
+  @@index([companyId, entityType, entityId])
+  @@map("attachment")
+}
+
+// ============================================================================
+// AUDIT TRAIL  (doc §5.5) — append-only
+// ============================================================================
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  actorUserId String? @db.Uuid
+  action     String   // "create" | "update" | "post" | "void" | ...
+  tableName  String
+  recordId   String?  @db.Uuid
+  before     Json?
+  after      Json?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, tableName, recordId])
+  @@index([companyId, createdAt])
+  @@map("audit_log")
+}

@@ -1,0 +1,18 @@
+# OpenBooks reverse proxy.
+# Local dev: serve on http://localhost. For production, replace `:80` with your
+# domain (e.g. books.example.com) and Caddy will provision TLS automatically.
+
+:80 {
+	# API under /api/*
+	handle_path /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Everything else -> web (Vite dev server / preview)
+	handle {
+		reverse_proxy web:5173
+	}
+
+	encode gzip zstd
+	log
+}

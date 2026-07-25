@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+.next/
+out/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# prisma local db
+api/prisma/*.db
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# docker volumes (if bind-mounted locally)
+.data/
+volumes/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# test / coverage
+coverage/
+.nyc_output/

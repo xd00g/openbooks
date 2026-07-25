@@ -1,0 +1,262 @@
+%% OpenBooks — Accounting Core ER Diagram (design draft v0.1)
+%% Renders in any Mermaid viewer. Mirrors schema.prisma.
+erDiagram
+    ORGANIZATION ||--o{ COMPANY : owns
+    ORGANIZATION ||--o{ ROLE : defines
+    ORGANIZATION ||--o{ MEMBERSHIP : has
+
+    APP_USER ||--o{ MEMBERSHIP : "belongs via"
+    COMPANY  ||--o{ MEMBERSHIP : "scopes"
+    ROLE     ||--o{ MEMBERSHIP : grants
+
+    COMPANY ||--o{ ACCOUNT : has
+    ACCOUNT ||--o{ ACCOUNT : "parent of"
+
+    COMPANY ||--o{ JOURNAL_ENTRY : has
+    JOURNAL_ENTRY ||--|{ JOURNAL_LINE : "has 2+"
+    ACCOUNT ||--o{ JOURNAL_LINE : "posted to"
+    JOURNAL_ENTRY |o--o| JOURNAL_ENTRY : "reverses"
+    APP_USER ||--o{ JOURNAL_ENTRY : "created by"
+
+    COMPANY ||--o{ CUSTOMER : has
+    COMPANY ||--o{ VENDOR : has
+    COMPANY ||--o{ ITEM : has
+    COMPANY ||--o{ TAX_AGENCY : has
+    TAX_AGENCY ||--o{ TAX_RATE : "levies"
+
+    CUSTOMER ||--o{ INVOICE : "billed on"
+    INVOICE ||--|{ INVOICE_LINE : "has"
+    INVOICE ||--o{ INVOICE_TAX_LINE : "has"
+    ITEM ||--o{ INVOICE_LINE : "used in"
+    ACCOUNT ||--o{ INVOICE_LINE : "income to"
+    TAX_RATE ||--o{ INVOICE_LINE : "taxed at"
+    JOURNAL_ENTRY |o--|| INVOICE : "posts as"
+
+    VENDOR ||--o{ BILL : "billed by"
+    BILL ||--|{ BILL_LINE : "has"
+    ITEM ||--o{ BILL_LINE : "used in"
+    ACCOUNT ||--o{ BILL_LINE : "expense to"
+    TAX_RATE ||--o{ BILL_LINE : "taxed at"
+    JOURNAL_ENTRY |o--|| BILL : "posts as"
+
+    COMPANY ||--o{ PAYMENT : has
+    CUSTOMER ||--o{ PAYMENT : "from"
+    VENDOR ||--o{ PAYMENT : "to"
+    PAYMENT ||--o{ PAYMENT_APPLICATION : "applied via"
+    INVOICE ||--o{ PAYMENT_APPLICATION : "settled by"
+    BILL ||--o{ PAYMENT_APPLICATION : "settled by"
+    JOURNAL_ENTRY |o--|| PAYMENT : "posts as"
+
+    COMPANY ||--o{ BANK_ACCOUNT : has
+    ACCOUNT ||--|| BANK_ACCOUNT : "GL link"
+    BANK_ACCOUNT ||--o{ BANK_TRANSACTION : "feeds"
+    BANK_ACCOUNT ||--o{ RECONCILIATION : "reconciled by"
+    RECONCILIATION ||--o{ BANK_TRANSACTION : "clears"
+    JOURNAL_ENTRY |o--o{ BANK_TRANSACTION : "categorized as"
+
+    COMPANY ||--o{ EMPLOYEE : employs
+    COMPANY ||--o{ PAYROLL_RUN : has
+    PAYROLL_RUN ||--|{ PAYROLL_LINE : "has"
+    EMPLOYEE ||--o{ PAYROLL_LINE : "paid on"
+    JOURNAL_ENTRY |o--|| PAYROLL_RUN : "posts as"
+
+    COMPANY ||--o{ ATTACHMENT : has
+    APP_USER ||--o{ ATTACHMENT : "uploaded by"
+    COMPANY ||--o{ AUDIT_LOG : records
+
+    ORGANIZATION {
+        uuid id PK
+        string name
+    }
+    COMPANY {
+        uuid id PK
+        uuid organizationId FK
+        string legalName
+        string ein "encrypted"
+        string baseCurrency
+        int fiscalYearStartMonth
+    }
+    APP_USER {
+        uuid id PK
+        string oidcSubject UK
+        string email UK
+        bool isSystemAdmin
+    }
+    ROLE {
+        uuid id PK
+        uuid organizationId FK "null=system"
+        string name
+        string_array permissions
+    }
+    MEMBERSHIP {
+        uuid id PK
+        uuid userId FK
+        uuid companyId FK
+        uuid roleId FK
+    }
+    ACCOUNT {
+        uuid id PK
+        uuid companyId FK
+        string code
+        enum type "asset|liability|equity|income|expense"
+        enum subtype
+        uuid parentId FK
+        bool isSystem
+    }
+    JOURNAL_ENTRY {
+        uuid id PK
+        uuid companyId FK
+        date entryDate
+        enum sourceType
+        enum status "draft|posted|void"
+        uuid reversalOfId FK
+        datetime postedAt
+    }
+    JOURNAL_LINE {
+        uuid id PK
+        uuid journalEntryId FK
+        uuid accountId FK
+        decimal debit "19,4"
+        decimal credit "19,4"
+        enum entityType
+        uuid entityId
+    }
+    CUSTOMER {
+        uuid id PK
+        uuid companyId FK
+        string displayName
+    }
+    VENDOR {
+        uuid id PK
+        uuid companyId FK
+        string displayName
+        bool is1099
+    }
+    INVOICE {
+        uuid id PK
+        uuid companyId FK
+        uuid customerId FK
+        string number
+        enum status
+        decimal total "19,4"
+        decimal balanceDue "19,4"
+        uuid journalEntryId FK
+    }
+    INVOICE_LINE {
+        uuid id PK
+        uuid invoiceId FK
+        uuid accountId FK
+        decimal amount "19,4"
+    }
+    INVOICE_TAX_LINE {
+        uuid id PK
+        uuid invoiceId FK
+        uuid taxRateId FK
+        decimal taxAmount "19,4"
+    }
+    BILL {
+        uuid id PK
+        uuid companyId FK
+        uuid vendorId FK
+        enum status
+        decimal total "19,4"
+        decimal balanceDue "19,4"
+        uuid journalEntryId FK
+    }
+    BILL_LINE {
+        uuid id PK
+        uuid billId FK
+        uuid accountId FK
+        decimal amount "19,4"
+    }
+    PAYMENT {
+        uuid id PK
+        uuid companyId FK
+        enum direction "received|paid"
+        decimal amount "19,4"
+        uuid journalEntryId FK
+    }
+    PAYMENT_APPLICATION {
+        uuid id PK
+        uuid paymentId FK
+        uuid invoiceId FK
+        uuid billId FK
+        decimal amount "19,4"
+    }
+    ITEM {
+        uuid id PK
+        uuid companyId FK
+        string name
+        enum type
+    }
+    TAX_AGENCY {
+        uuid id PK
+        uuid companyId FK
+        string name
+    }
+    TAX_RATE {
+        uuid id PK
+        uuid companyId FK
+        uuid agencyId FK
+        decimal rate "9,6"
+    }
+    BANK_ACCOUNT {
+        uuid id PK
+        uuid companyId FK
+        uuid accountId FK UK
+        enum provider "simplefin|plaid|file_import|manual"
+        string accessToken "encrypted"
+    }
+    BANK_TRANSACTION {
+        uuid id PK
+        uuid companyId FK
+        uuid bankAccountId FK
+        string externalId
+        decimal amount "19,4 signed"
+        enum status "unmatched|matched|ignored"
+        uuid journalEntryId FK
+    }
+    RECONCILIATION {
+        uuid id PK
+        uuid companyId FK
+        uuid bankAccountId FK
+        date statementDate
+        decimal endingBalance "19,4"
+        enum status
+    }
+    EMPLOYEE {
+        uuid id PK
+        uuid companyId FK
+        string firstName
+        string lastName
+        string ssnEncrypted "encrypted"
+    }
+    PAYROLL_RUN {
+        uuid id PK
+        uuid companyId FK
+        date payDate
+        decimal grossTotal "19,4"
+        uuid journalEntryId FK
+    }
+    PAYROLL_LINE {
+        uuid id PK
+        uuid payrollRunId FK
+        uuid employeeId FK
+        decimal gross "19,4"
+        decimal net "19,4"
+    }
+    ATTACHMENT {
+        uuid id PK
+        uuid companyId FK
+        string entityType
+        uuid entityId
+        string storageKey
+    }
+    AUDIT_LOG {
+        uuid id PK
+        uuid companyId FK
+        string action
+        string tableName
+        json before
+        json after
+    }
