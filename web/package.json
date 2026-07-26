@@ -7,7 +7,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host --port 5173",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview --host --port 5173",
     "lint": "eslint \"src/**/*.{ts,tsx}\""
   },

@@ -65,5 +65,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Typecheck
+        run: npm run typecheck
       - name: Build
         run: npm run build
