@@ -13,7 +13,8 @@ import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
 import Payroll from './pages/Payroll';
 import Banking from './pages/Banking';
-import Simple from './pages/Simple';
+import Company from './pages/Company';
+import Admin from './pages/Admin';
 
 const NAV: { to: string; label: string; icon: ReactNode }[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -104,8 +105,8 @@ export default function App() {
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/reports" element={<Reports />} />
-          <Route path="/company" element={<Simple title="Company" note="Company profile & settings (EIN, address, invoice branding, fiscal year, sales tax) will live here." />} />
-          <Route path="/admin" element={<Simple title="Admin" note="Users, roles/permissions, integrations, and the audit log will live here." />} />
+          <Route path="/company" element={<Company />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </main>
     </div>

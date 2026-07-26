@@ -14,6 +14,8 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { AuthModule } from './auth/auth.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { CompanyModule } from './company/company.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -30,8 +32,8 @@ import { PayrollModule } from './payroll/payroll.module';
     ExpensesModule,
     AttachmentsModule,
     PayrollModule,
-    // Feature modules land here as they are built:
-    //   CompaniesModule
+    CompanyModule,
+    AdminModule,
   ],
   controllers: [HealthController],
 })
