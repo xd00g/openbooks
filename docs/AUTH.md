@@ -1,35 +1,66 @@
-# Authentication (OIDC / Authentik)
+# Authentication & Authorization
 
-OpenBooks is an OpenID Connect **relying party**. Any OIDC provider works
-(Authentik, Keycloak, Google Workspace, Entra ID, Auth0). Authentik is the
-recommended self-hosted option.
+OpenBooks issues its own **session JWT** after a user authenticates through one
+of three pluggable providers. The rest of the app only trusts the app session,
+so providers are interchangeable (docs/DESIGN.md §8).
 
-## First run without OIDC (break-glass admin)
+```
+ provider (local | oidc | saml)  ->  AuthService  ->  app session JWT  ->  guards
+```
 
-If `OIDC_ISSUER_URL` is empty, the API bootstraps a local admin from
-`BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`. Use this to get in,
-create your first organization/company, then configure OIDC. Keep the local
-admin as a recovery path even after OIDC is live.
+## Providers
 
-## Wiring Authentik
+- **Local** — email + password (scrypt hashed). Always available; also powers
+  the break-glass admin. `POST /api/auth/login`.
+- **OIDC** — Authorization Code + PKCE against any OIDC issuer (Authentik,
+  Keycloak, Entra ID, Google, Auth0). `GET /api/auth/oidc/start` →
+  `GET /api/auth/oidc/callback`. Configure `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`,
+  `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`.
+  - Hardening TODO: verify the `id_token` signature against the issuer JWKS
+    (currently claims are read post-exchange over TLS).
+- **SAML 2.0** — scaffolded. Assertion→profile mapping is implemented and
+  testable; wire `@node-saml/node-saml` into `SamlProvider` and set
+  `SAML_ENTRY_POINT`, `SAML_CERT`, `SAML_ISSUER`, `SAML_CALLBACK_URL` to enable.
 
-1. Run Authentik (see its official docker-compose; it needs its own Postgres +
-   Redis). A ready-made overlay lives at `docker-compose.authentik.yml` (TODO).
-2. In Authentik, create an **OAuth2/OpenID Provider** and an **Application**:
-   - Redirect URI: `${APP_URL}/api/auth/callback`
-   - Scopes: `openid email profile groups`
-3. Copy the issuer URL, client ID, and client secret into `.env`:
-   ```
-   OIDC_ISSUER_URL=https://auth.example.com/application/o/openbooks/
-   OIDC_CLIENT_ID=...
-   OIDC_CLIENT_SECRET=...
-   ```
-4. Map Authentik **groups** to OpenBooks roles (e.g. group `openbooks-admins`
-   → role `Admin`). Group claims arrive in the token and are matched on login.
+`GET /api/auth/providers` reports which are configured, so the UI can render the
+right buttons.
 
-## Login flow
+## Sessions
 
-Authorization Code + PKCE. On first login the app just-in-time provisions a
-local `app_user` keyed by the OIDC `sub`, reading `email`, `name`, and `groups`
-claims. Authorization (what a user can do) is enforced by OpenBooks RBAC per
-company — independent of the IdP. See `docs/DESIGN.md` §8.
+`AuthService.issueSession` signs an HS256 JWT (`JWT_SECRET`, 8h TTL) carrying the
+user id and email. Clients send it as `Authorization: Bearer <token>`.
+`GET /api/auth/me` returns the user and their memberships. Logout is client-side
+(discard the token); add a denylist if you need server-side revocation.
+
+## Authorization (RBAC + tenancy)
+
+Two global guards run on every route unless `@Public()`:
+
+1. **JwtAuthGuard** — validates the session, sets `req.user`.
+2. **PermissionsGuard** — if an `X-Company-Id` header is present, the user MUST
+   have a membership in that company (this is the real tenant gate, since RLS
+   trusts whatever company the service sets). If a route declares
+   `@RequirePermissions('invoice:create', ...)`, the membership's role must
+   satisfy them. System admins bypass.
+
+Permission grammar: `*` (all), `invoice:*` (resource wildcard), `invoice:create`
+(exact). Roles store a `permissions: string[]`.
+
+## Break-glass admin
+
+On first boot, if there are no users and `BOOTSTRAP_ADMIN_EMAIL` /
+`BOOTSTRAP_ADMIN_PASSWORD` are set, a system-admin local user is created. Keep
+this as a recovery path even after SSO is live; change the password immediately.
+
+## Onboarding & the RLS bootstrap
+
+Creating the first Organization/Company can't satisfy the company table's RLS
+INSERT check (no company is selected yet). `OnboardingService` therefore runs on
+a privileged connection (`ADMIN_DATABASE_URL`, a superuser/BYPASSRLS role) to
+create org → owner → company → membership, then seeds the chart of accounts via
+the normal RLS path. `POST /api/onboarding` is `@Public` for self-serve sign-up;
+gate it behind an invite or restrict to admins per your policy.
+
+The admin connection is used for exactly two things — auth membership reads and
+onboarding — and nothing else. All business data access goes through the normal
+RLS-enforced connection.

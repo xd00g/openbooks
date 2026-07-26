@@ -90,8 +90,11 @@ model Company {
 model User {
   id            String   @id @default(uuid()) @db.Uuid
   oidcSubject   String?  @unique // maps to the OIDC `sub` claim
+  samlSubject   String?  @unique // maps to the SAML NameID
   email         String   @unique
   fullName      String?
+  passwordHash  String?  // local auth (scrypt); null for SSO-only users
+  authProvider  String   @default("local") // local | oidc | saml
   isSystemAdmin Boolean  @default(false) // break-glass local admin
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())

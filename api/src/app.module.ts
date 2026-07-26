@@ -12,11 +12,13 @@ import { PeriodModule } from './period/period.module';
 import { SalesModule } from './sales/sales.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { AttachmentsModule } from './attachments/attachments.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AuthModule, // installs global auth + RBAC guards
     LedgerModule,
     AccountsModule,
     PostingModule,
@@ -27,7 +29,7 @@ import { AttachmentsModule } from './attachments/attachments.module';
     ExpensesModule,
     AttachmentsModule,
     // Feature modules land here as they are built:
-    //   AuthModule, CompaniesModule, PayrollModule
+    //   CompaniesModule, PayrollModule
   ],
   controllers: [HealthController],
 })
