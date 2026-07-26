@@ -3,8 +3,9 @@
 # domain (e.g. books.example.com) and Caddy will provision TLS automatically.
 
 :80 {
-	# API under /api/*
-	handle_path /api/* {
+	# API under /api/* — preserve the /api prefix (the API uses it as its global
+	# route prefix), so use `handle` (not `handle_path`, which would strip it).
+	handle /api/* {
 		reverse_proxy api:3000
 	}
 
