@@ -77,6 +77,14 @@ export class Money {
     return new Money(divRoundHalfUp(product, 10n ** BigInt(RATE_DECIMALS)));
   }
 
+  /**
+   * Multiply by a plain decimal factor (e.g. a line quantity), rounding to 4dp
+   * half-up. Same math as mulRate; named for readability at call sites.
+   */
+  times(factor: string | number): Money {
+    return this.mulRate(factor);
+  }
+
   isZero(): boolean {
     return this.micros === 0n;
   }

@@ -9,6 +9,9 @@ import { PostingModule } from './posting/posting.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { BankingModule } from './banking/banking.module';
 import { PeriodModule } from './period/period.module';
+import { SalesModule } from './sales/sales.module';
+import { ExpensesModule } from './expenses/expenses.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 
 @Module({
   imports: [
@@ -20,9 +23,11 @@ import { PeriodModule } from './period/period.module';
     ReportingModule,
     BankingModule,
     PeriodModule,
+    SalesModule,
+    ExpensesModule,
+    AttachmentsModule,
     // Feature modules land here as they are built:
-    //   AuthModule, CompaniesModule, SalesModule, ExpensesModule,
-    //   PayrollModule, AttachmentsModule
+    //   AuthModule, CompaniesModule, PayrollModule
   ],
   controllers: [HealthController],
 })

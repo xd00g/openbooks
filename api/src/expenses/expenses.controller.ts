@@ -1,0 +1,80 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+} from '@nestjs/common';
+import { ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ExpensesService } from './expenses.service';
+import { DocLineInput } from '../documents/document.logic';
+
+function company(id?: string): string {
+  if (!id) throw new BadRequestException('Missing X-Company-Id header.');
+  return id;
+}
+
+@ApiTags('expenses')
+@ApiHeader({ name: 'X-Company-Id', required: true })
+@Controller('expenses')
+export class ExpensesController {
+  constructor(private readonly expenses: ExpensesService) {}
+
+  @Post('vendors')
+  createVendor(
+    @Headers('x-company-id') cid: string,
+    @Body() body: { displayName: string; email?: string; is1099?: boolean },
+  ) {
+    return this.expenses.createVendor(company(cid), body);
+  }
+
+  @Get('vendors')
+  listVendors(@Headers('x-company-id') cid: string) {
+    return this.expenses.listVendors(company(cid));
+  }
+
+  @Post('bills')
+  createBill(
+    @Headers('x-company-id') cid: string,
+    @Body()
+    body: {
+      vendorId: string;
+      number?: string;
+      issueDate: string;
+      dueDate?: string;
+      currency?: string;
+      memo?: string;
+      lines: DocLineInput[];
+    },
+  ) {
+    return this.expenses.createBill(company(cid), body);
+  }
+
+  @Post('bills/:id/finalize')
+  finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.expenses.finalizeBill(company(cid), id);
+  }
+
+  @Get('bills')
+  listBills(@Headers('x-company-id') cid: string) {
+    return this.expenses.listBills(company(cid));
+  }
+
+  @Post('payments')
+  payBills(
+    @Headers('x-company-id') cid: string,
+    @Body()
+    body: {
+      vendorId: string;
+      paymentDate: string;
+      bankAccountId: string;
+      method?: string;
+      reference?: string;
+      allocations: { billId: string; amount: string }[];
+    },
+  ) {
+    return this.expenses.payBills(company(cid), body);
+  }
+}

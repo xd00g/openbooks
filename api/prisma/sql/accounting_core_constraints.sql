@@ -7,6 +7,7 @@
 --   1. Ledger invariants   — debit/credit shape + SUM(debit)=SUM(credit)  (doc §5.1)
 --   2. Immutability guard  — block edits/deletes of POSTED journal entries  (doc §5.1)
 --   3. Row-Level Security  — tenant isolation by company_id                 (doc §4.2)
+--   4. Closed-period guard — block posting into a closed period            (doc §11)
 -- ============================================================================
 
 
@@ -238,3 +239,38 @@ END $$;
 --    orgs/companies come from their memberships).
 --  * Grant the app role only DML on these tables; run migrations as a separate
 --    owner role so FORCE RLS still protects the owner path.
+
+
+-- ----------------------------------------------------------------------------
+-- 4. CLOSED-PERIOD GUARD (doc §11)
+-- Mirrors the app-layer guard (PeriodCloseService / LedgerService) at the DB
+-- for defense in depth. A company's close date lives in company.settings as
+-- JSON: {"closedThrough": "YYYY-MM-DD"}. No journal entry may be dated on or
+-- before that date. The closing entry itself is safe because the service posts
+-- it BEFORE advancing closedThrough.
+-- ----------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION guard_closed_period()
+RETURNS trigger AS $$
+DECLARE
+  v_closed date;
+BEGIN
+  SELECT (settings->>'closedThrough')::date
+    INTO v_closed
+  FROM company
+  WHERE id = NEW.company_id;
+
+  IF v_closed IS NOT NULL AND NEW.entry_date <= v_closed THEN
+    RAISE EXCEPTION
+      'Period is closed through %; cannot post/modify entry dated %',
+      v_closed, NEW.entry_date
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_journal_entry_closed_period
+  BEFORE INSERT OR UPDATE ON journal_entry
+  FOR EACH ROW EXECUTE FUNCTION guard_closed_period();
