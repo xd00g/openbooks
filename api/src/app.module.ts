@@ -13,6 +13,7 @@ import { SalesModule } from './sales/sales.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { AuthModule } from './auth/auth.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -28,8 +29,9 @@ import { AuthModule } from './auth/auth.module';
     SalesModule,
     ExpensesModule,
     AttachmentsModule,
+    PayrollModule,
     // Feature modules land here as they are built:
-    //   CompaniesModule, PayrollModule
+    //   CompaniesModule
   ],
   controllers: [HealthController],
 })
