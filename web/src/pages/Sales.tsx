@@ -3,13 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, today } from '../lib/format';
-import { Page, Card, Table, Button, Empty } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
+import Attachments from '../components/Attachments';
 
 export default function Sales() {
   const { companyId } = useAuth();
   const qc = useQueryClient();
   const key = (k: string) => [k, companyId];
   const [err, setErr] = useState('');
+  const [filesFor, setFilesFor] = useState<string | null>(null);
 
   const customers = useQuery({ queryKey: key('customers'), enabled: !!companyId, queryFn: () => api.get('/sales/customers') });
   const invoices = useQuery({ queryKey: key('invoices'), enabled: !!companyId, queryFn: () => api.get('/sales/invoices') });
@@ -91,10 +93,13 @@ export default function Sales() {
             <td className="px-4 py-2 text-right">{money(i.total)}</td>
             <td className="px-4 py-2 text-right">{money(i.balanceDue)}</td>
             <td className="px-4 py-2 text-right">
-              {i.status === 'draft' && <Button variant="ghost" onClick={() => finalize(i.id)}>Finalize</Button>}
-              {(i.status === 'open' || i.status === 'partially_paid') && Number(i.balanceDue) > 0 && (
-                <Button variant="ghost" onClick={() => receive(i)}>Receive</Button>
-              )}
+              <span className="inline-flex gap-2">
+                <Button variant="ghost" onClick={() => setFilesFor(i.id)}>Files</Button>
+                {i.status === 'draft' && <Button variant="ghost" onClick={() => finalize(i.id)}>Finalize</Button>}
+                {(i.status === 'open' || i.status === 'partially_paid') && Number(i.balanceDue) > 0 && (
+                  <Button variant="ghost" onClick={() => receive(i)}>Receive</Button>
+                )}
+              </span>
             </td>
           </tr>
         ))}
@@ -102,6 +107,12 @@ export default function Sales() {
           <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No invoices yet.</td></tr>
         )}
       </Table>
+
+      {filesFor && (
+        <Modal title="Invoice attachments" onClose={() => setFilesFor(null)}>
+          <Attachments entityType="invoice" entityId={filesFor} />
+        </Modal>
+      )}
     </Page>
   );
 }

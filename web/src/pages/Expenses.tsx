@@ -3,13 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, today } from '../lib/format';
-import { Page, Card, Table, Button, Empty } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
+import Attachments from '../components/Attachments';
 
 export default function Expenses() {
   const { companyId } = useAuth();
   const qc = useQueryClient();
   const key = (k: string) => [k, companyId];
   const [err, setErr] = useState('');
+  const [filesFor, setFilesFor] = useState<string | null>(null);
 
   const vendors = useQuery({ queryKey: key('vendors'), enabled: !!companyId, queryFn: () => api.get('/expenses/vendors') });
   const bills = useQuery({ queryKey: key('bills'), enabled: !!companyId, queryFn: () => api.get('/expenses/bills') });
@@ -87,10 +89,13 @@ export default function Expenses() {
             <td className="px-4 py-2 text-right">{money(b.total)}</td>
             <td className="px-4 py-2 text-right">{money(b.balanceDue)}</td>
             <td className="px-4 py-2 text-right">
-              {b.status === 'draft' && <Button variant="ghost" onClick={() => finalize(b.id)}>Finalize</Button>}
-              {(b.status === 'open' || b.status === 'partially_paid') && Number(b.balanceDue) > 0 && (
-                <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
-              )}
+              <span className="inline-flex gap-2">
+                <Button variant="ghost" onClick={() => setFilesFor(b.id)}>Files</Button>
+                {b.status === 'draft' && <Button variant="ghost" onClick={() => finalize(b.id)}>Finalize</Button>}
+                {(b.status === 'open' || b.status === 'partially_paid') && Number(b.balanceDue) > 0 && (
+                  <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
+                )}
+              </span>
             </td>
           </tr>
         ))}
@@ -98,6 +103,12 @@ export default function Expenses() {
           <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No bills yet.</td></tr>
         )}
       </Table>
+
+      {filesFor && (
+        <Modal title="Bill attachments" onClose={() => setFilesFor(null)}>
+          <Attachments entityType="bill" entityId={filesFor} />
+        </Modal>
+      )}
     </Page>
   );
 }

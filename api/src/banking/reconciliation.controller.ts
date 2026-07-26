@@ -36,6 +36,14 @@ export class ReconciliationController {
     return this.svc.start(requireCompany(companyId), body.bankAccountId, body);
   }
 
+  @Get()
+  list(
+    @Headers('x-company-id') companyId: string,
+    @Query('bankAccountId') bankAccountId?: string,
+  ) {
+    return this.svc.list(requireCompany(companyId), bankAccountId);
+  }
+
   @Get('suggestions')
   suggestions(
     @Headers('x-company-id') companyId: string,
@@ -77,5 +85,13 @@ export class ReconciliationController {
     @Param('id') reconciliationId: string,
   ) {
     return this.svc.complete(requireCompany(companyId), reconciliationId);
+  }
+
+  @Get(':id')
+  get(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') reconciliationId: string,
+  ) {
+    return this.svc.get(requireCompany(companyId), reconciliationId);
   }
 }

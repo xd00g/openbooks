@@ -181,6 +181,28 @@ export class ReconciliationService {
     });
   }
 
+  /** List reconciliations, optionally for one bank account. */
+  list(companyId: string, bankAccountId?: string) {
+    return this.prisma.forCompany(companyId, (tx) =>
+      tx.reconciliation.findMany({
+        where: bankAccountId ? { bankAccountId } : {},
+        orderBy: { statementDate: 'desc' },
+      }),
+    );
+  }
+
+  /** A reconciliation with its cleared transactions. */
+  get(companyId: string, id: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const rec = await this.getRec(tx, id);
+      const cleared = await tx.bankTransaction.findMany({
+        where: { reconciliationId: id },
+        orderBy: { postedDate: 'asc' },
+      });
+      return { ...rec, transactions: cleared };
+    });
+  }
+
   private async getRec(tx: PrismaClient, id: string) {
     const rec = await tx.reconciliation.findFirst({ where: { id } });
     if (!rec) throw new NotFoundException('Reconciliation not found.');

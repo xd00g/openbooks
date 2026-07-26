@@ -12,6 +12,7 @@ import Accounting from './pages/Accounting';
 import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
 import Payroll from './pages/Payroll';
+import Banking from './pages/Banking';
 import Simple from './pages/Simple';
 
 const NAV: { to: string; label: string; icon: ReactNode }[] = [
@@ -97,7 +98,7 @@ export default function App() {
       <main className="flex-1 overflow-auto bg-slate-50 p-8">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/banking" element={<Simple title="Banking" note="Bank feeds import + reconciliation live in the API (POST /banking/…). A UI for statement matching is the next banking screen." />} />
+          <Route path="/banking" element={<Banking />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/accounting" element={<Accounting />} />
