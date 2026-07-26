@@ -71,4 +71,26 @@ export class ReportingController {
       method,
     );
   }
+
+  @Get('ar-aging')
+  arAging(
+    @Headers('x-company-id') companyId: string,
+    @Query('asOf') asOf?: string,
+  ) {
+    return this.reporting.arAging(
+      requireCompany(companyId),
+      asOf ?? isoDate(new Date()),
+    );
+  }
+
+  @Get('ap-aging')
+  apAging(
+    @Headers('x-company-id') companyId: string,
+    @Query('asOf') asOf?: string,
+  ) {
+    return this.reporting.apAging(
+      requireCompany(companyId),
+      asOf ?? isoDate(new Date()),
+    );
+  }
 }

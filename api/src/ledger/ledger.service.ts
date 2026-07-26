@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PostingRequest, assertBalanced } from './ledger.types';
 
 /**
@@ -21,6 +21,7 @@ export class LedgerService {
   ): Promise<string> {
     // In-app validation first, for clear errors before hitting DB triggers.
     assertBalanced(req.lines);
+    await this.assertPeriodOpen(tx, req.companyId, req.entryDate);
 
     const entry = await tx.journalEntry.create({
       data: {
@@ -111,5 +112,35 @@ export class LedgerService {
     });
 
     return reversal.id;
+  }
+
+  /**
+   * Reject postings dated on/before the company's closed-through date. Period
+   * close (see PeriodCloseService) sets company.settings.closedThrough; nothing
+   * may be posted into a locked period. This is the app-layer guard; a DB-level
+   * guard can be added later for defense in depth.
+   */
+  private async assertPeriodOpen(
+    tx: PrismaClient,
+    companyId: string,
+    entryDate: Date | string,
+  ): Promise<void> {
+    const company = await tx.company.findUnique({
+      where: { id: companyId },
+      select: { settings: true },
+    });
+    const closedThrough = (company?.settings as Prisma.JsonObject)?.[
+      'closedThrough'
+    ] as string | undefined;
+    if (!closedThrough) return;
+    if (new Date(entryDate) <= new Date(closedThrough)) {
+      throw new BadRequestException(
+        `Period is closed through ${closedThrough}; cannot post on ${new Date(
+          entryDate,
+        )
+          .toISOString()
+          .slice(0, 10)}.`,
+      );
+    }
   }
 }

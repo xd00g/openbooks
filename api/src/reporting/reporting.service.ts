@@ -7,6 +7,7 @@ import {
   buildTrialBalance,
 } from './reporting.builders';
 import { AccountActivityRow, AccountingMethod } from './reporting.types';
+import { AgingKind, OpenItem, buildAging } from './aging.builders';
 
 /**
  * Reporting reads the immutable ledger and never mutates it. All queries run in
@@ -105,6 +106,48 @@ export class ReportingService {
     return this.prisma.forCompany(companyId, async (tx) => {
       const rows = await this.activity(tx, companyId, asOf);
       return buildBalanceSheet(rows, asOf, method);
+    });
+  }
+
+  /** Open receivables, bucketed by age. */
+  async arAging(companyId: string, asOf: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const invoices = await tx.invoice.findMany({
+        where: {
+          status: { in: ['open', 'partially_paid'] },
+          balanceDue: { gt: 0 },
+        },
+        include: { customer: { select: { displayName: true } } },
+      });
+      const items: OpenItem[] = invoices.map((i) => ({
+        id: i.id,
+        ref: i.number,
+        party: i.customer.displayName,
+        dueDate: (i.dueDate ?? i.issueDate).toISOString().slice(0, 10),
+        amount: i.balanceDue.toString(),
+      }));
+      return buildAging(items, asOf, 'ar' as AgingKind);
+    });
+  }
+
+  /** Open payables, bucketed by age. */
+  async apAging(companyId: string, asOf: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const bills = await tx.bill.findMany({
+        where: {
+          status: { in: ['open', 'partially_paid'] },
+          balanceDue: { gt: 0 },
+        },
+        include: { vendor: { select: { displayName: true } } },
+      });
+      const items: OpenItem[] = bills.map((b) => ({
+        id: b.id,
+        ref: b.number ?? 'Bill',
+        party: b.vendor.displayName,
+        dueDate: (b.dueDate ?? b.issueDate).toISOString().slice(0, 10),
+        amount: b.balanceDue.toString(),
+      }));
+      return buildAging(items, asOf, 'ap' as AgingKind);
     });
   }
 }

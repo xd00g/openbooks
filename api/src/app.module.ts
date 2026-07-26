@@ -7,6 +7,8 @@ import { LedgerModule } from './ledger/ledger.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { PostingModule } from './posting/posting.module';
 import { ReportingModule } from './reporting/reporting.module';
+import { BankingModule } from './banking/banking.module';
+import { PeriodModule } from './period/period.module';
 
 @Module({
   imports: [
@@ -16,9 +18,11 @@ import { ReportingModule } from './reporting/reporting.module';
     AccountsModule,
     PostingModule,
     ReportingModule,
+    BankingModule,
+    PeriodModule,
     // Feature modules land here as they are built:
     //   AuthModule, CompaniesModule, SalesModule, ExpensesModule,
-    //   BankingModule, PayrollModule, AttachmentsModule
+    //   PayrollModule, AttachmentsModule
   ],
   controllers: [HealthController],
 })
