@@ -6,6 +6,7 @@ import { TenantMiddleware } from './common/tenant/tenant.middleware';
 import { LedgerModule } from './ledger/ledger.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { PostingModule } from './posting/posting.module';
+import { ReportingModule } from './reporting/reporting.module';
 
 @Module({
   imports: [
@@ -14,9 +15,10 @@ import { PostingModule } from './posting/posting.module';
     LedgerModule,
     AccountsModule,
     PostingModule,
+    ReportingModule,
     // Feature modules land here as they are built:
     //   AuthModule, CompaniesModule, SalesModule, ExpensesModule,
-    //   BankingModule, PayrollModule, ReportsModule, AttachmentsModule
+    //   BankingModule, PayrollModule, AttachmentsModule
   ],
   controllers: [HealthController],
 })
