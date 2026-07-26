@@ -63,6 +63,23 @@ docker compose up -d          # bring up api, worker, web, caddy
 > [`docs/AUTH.md`](docs/AUTH.md) for wiring Authentik or any OIDC provider, and
 > the break-glass local admin.
 
+## Tests & CI
+
+The accounting and auth rules live in pure, dependency-free modules (`*.logic.ts`,
+`*.builders.ts`, `money.ts`, `auth/crypto/*`, `authz.ts`), each covered by a fast
+unit suite that needs no database.
+
+```bash
+cd api
+npm install
+npm test          # run the unit suite (8 suites, 45 tests)
+npm run test:cov  # with coverage (~85% of the pure logic)
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
+`api-tests` (Jest + coverage), `api-typecheck` (`tsc --noEmit` after
+`prisma generate`), and `web-build`.
+
 ## The two DB-level guarantees
 
 Prisma models the tables, but two correctness rules live in raw SQL

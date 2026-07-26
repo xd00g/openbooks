@@ -15,7 +15,10 @@
     "db:constraints": "sh ../scripts/apply-sql-migrations.sh",
     "db:seed": "prisma db seed",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "jest --passWithNoTests"
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -38,8 +41,11 @@
     "@nestjs/cli": "^10.4.0",
     "@nestjs/schematics": "^10.1.0",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
     "@types/node": "^20.14.0",
+    "jest": "^29.7.0",
     "prisma": "^5.18.0",
+    "ts-jest": "^29.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.0"
   }
