@@ -72,13 +72,20 @@ unit suite that needs no database.
 ```bash
 cd api
 npm install
-npm test          # run the unit suite (8 suites, 45 tests)
+npm test          # unit suite (pure accounting/auth logic, no DB)
 npm run test:cov  # with coverage (~85% of the pure logic)
+npm run test:int  # integration: boots a real Postgres and asserts the
+                  # triggers + RLS against accounting_core_constraints.sql
 ```
 
+`npm run test:int` is self-contained — it starts its own PostgreSQL via
+`embedded-postgres` (no Docker or external service needed) and verifies the
+balance/immutability triggers, the closed-period guard, and Row-Level Security
+tenant isolation.
+
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
-`api-tests` (Jest + coverage), `api-typecheck` (`tsc --noEmit` after
-`prisma generate`), and `web-build`.
+`api-tests` (Jest + coverage), `api-integration` (real-Postgres triggers + RLS),
+`api-typecheck` (`tsc --noEmit` after `prisma generate`), and `web-build`.
 
 ## The two DB-level guarantees
 

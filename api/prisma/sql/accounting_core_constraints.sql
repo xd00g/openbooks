@@ -3,10 +3,16 @@
 -- Run as a manual migration AFTER `prisma migrate` creates the tables.
 -- Target: PostgreSQL 16+
 --
+-- IDENTIFIER NOTE: Prisma maps model names to snake_case TABLE names (via
+-- @@map) but leaves COLUMN names as the camelCase field names (companyId,
+-- entryDate, journalEntryId, ...). Those must be double-quoted in SQL. Single-
+-- word columns (debit, credit, status, currency, settings, id) are lowercase
+-- and need no quoting.
+--
 -- Contents:
 --   1. Ledger invariants   — debit/credit shape + SUM(debit)=SUM(credit)  (doc §5.1)
 --   2. Immutability guard  — block edits/deletes of POSTED journal entries  (doc §5.1)
---   3. Row-Level Security  — tenant isolation by company_id                 (doc §4.2)
+--   3. Row-Level Security  — tenant isolation by companyId                  (doc §4.2)
 --   4. Closed-period guard — block posting into a closed period            (doc §11)
 -- ============================================================================
 
@@ -34,7 +40,7 @@ DECLARE
   v_credit numeric(19,4);
   v_status text;
 BEGIN
-  v_entry := COALESCE(NEW.journal_entry_id, OLD.journal_entry_id);
+  v_entry := COALESCE(NEW."journalEntryId", OLD."journalEntryId");
 
   SELECT status INTO v_status FROM journal_entry WHERE id = v_entry;
 
@@ -46,7 +52,7 @@ BEGIN
   SELECT COALESCE(SUM(debit),0), COALESCE(SUM(credit),0)
     INTO v_debit, v_credit
   FROM journal_line
-  WHERE journal_entry_id = v_entry;
+  WHERE "journalEntryId" = v_entry;
 
   IF v_debit <> v_credit THEN
     RAISE EXCEPTION
@@ -80,7 +86,7 @@ BEGIN
   IF NEW.status = 'posted' AND OLD.status IS DISTINCT FROM 'posted' THEN
     SELECT COALESCE(SUM(debit),0), COALESCE(SUM(credit),0)
       INTO v_debit, v_credit
-    FROM journal_line WHERE journal_entry_id = NEW.id;
+    FROM journal_line WHERE "journalEntryId" = NEW.id;
 
     IF v_debit <> v_credit OR (v_debit = 0 AND v_credit = 0) THEN
       RAISE EXCEPTION
@@ -89,8 +95,8 @@ BEGIN
         USING ERRCODE = 'check_violation';
     END IF;
 
-    -- Stamp posted_at automatically.
-    NEW.posted_at := COALESCE(NEW.posted_at, now());
+    -- Stamp postedAt automatically.
+    NEW."postedAt" := COALESCE(NEW."postedAt", now());
   END IF;
   RETURN NEW;
 END;
@@ -122,10 +128,10 @@ BEGIN
   IF OLD.status = 'posted' THEN
     -- Allow only the status change to 'void'; everything else is frozen.
     IF NEW.status = 'void' AND
-       NEW.company_id  = OLD.company_id  AND
-       NEW.entry_date  = OLD.entry_date  AND
-       NEW.currency    = OLD.currency    AND
-       NEW.source_type = OLD.source_type THEN
+       NEW."companyId"  = OLD."companyId"  AND
+       NEW."entryDate"  = OLD."entryDate"  AND
+       NEW.currency     = OLD.currency     AND
+       NEW."sourceType" = OLD."sourceType" THEN
       RETURN NEW;
     END IF;
     RAISE EXCEPTION 'Posted journal entry % is immutable (only void is allowed)', OLD.id
@@ -147,7 +153,7 @@ DECLARE
   v_status text;
   v_entry uuid;
 BEGIN
-  v_entry := COALESCE(NEW.journal_entry_id, OLD.journal_entry_id);
+  v_entry := COALESCE(NEW."journalEntryId", OLD."journalEntryId");
   SELECT status INTO v_status FROM journal_entry WHERE id = v_entry;
   IF v_status = 'posted' THEN
     RAISE EXCEPTION 'Lines of posted entry % are immutable', v_entry
@@ -224,10 +230,11 @@ BEGIN
           WITH CHECK (id = current_company_id());
       $f$, t);
     ELSE
+      -- Note the quoted camelCase column name.
       EXECUTE format($f$
         CREATE POLICY tenant_isolation ON %I
-          USING (company_id = current_company_id())
-          WITH CHECK (company_id = current_company_id());
+          USING ("companyId" = current_company_id())
+          WITH CHECK ("companyId" = current_company_id());
       $f$, t);
     END IF;
   END LOOP;
@@ -258,12 +265,12 @@ BEGIN
   SELECT (settings->>'closedThrough')::date
     INTO v_closed
   FROM company
-  WHERE id = NEW.company_id;
+  WHERE id = NEW."companyId";
 
-  IF v_closed IS NOT NULL AND NEW.entry_date <= v_closed THEN
+  IF v_closed IS NOT NULL AND NEW."entryDate" <= v_closed THEN
     RAISE EXCEPTION
       'Period is closed through %; cannot post/modify entry dated %',
-      v_closed, NEW.entry_date
+      v_closed, NEW."entryDate"
       USING ERRCODE = 'restrict_violation';
   END IF;
 

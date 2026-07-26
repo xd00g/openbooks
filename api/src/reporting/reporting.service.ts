@@ -44,20 +44,20 @@ export class ReportingService {
     from?: string,
   ): Promise<AccountActivityRow[]> {
     const fromClause = from
-      ? Prisma.sql`AND je.entry_date >= ${from}::date`
+      ? Prisma.sql`AND je."entryDate" >= ${from}::date`
       : Prisma.empty;
 
     return tx.$queryRaw<AccountActivityRow[]>(Prisma.sql`
       WITH activity AS (
-        SELECT jl.account_id,
+        SELECT jl."accountId" AS account_id,
                SUM(jl.debit)  AS debit,
                SUM(jl.credit) AS credit
         FROM journal_line jl
-        JOIN journal_entry je ON je.id = jl.journal_entry_id
+        JOIN journal_entry je ON je.id = jl."journalEntryId"
         WHERE je.status = 'posted'
-          AND je.entry_date <= ${to}::date
+          AND je."entryDate" <= ${to}::date
           ${fromClause}
-        GROUP BY jl.account_id
+        GROUP BY jl."accountId"
       )
       SELECT a.code,
              a.name,
@@ -67,7 +67,7 @@ export class ReportingService {
              COALESCE(act.credit, 0)::text AS credit
       FROM account a
       LEFT JOIN activity act ON act.account_id = a.id
-      WHERE a.company_id = ${companyId}::uuid
+      WHERE a."companyId" = ${companyId}::uuid
       ORDER BY a.code
     `);
   }

@@ -72,13 +72,13 @@ export class ReconciliationService {
       const glRows = await tx.$queryRaw<
         { journalEntryId: string; date: Date; amount: string }[]
       >(Prisma.sql`
-        SELECT jl.journal_entry_id AS "journalEntryId",
-               je.entry_date       AS date,
+        SELECT jl."journalEntryId" AS "journalEntryId",
+               je."entryDate"      AS date,
                (jl.debit - jl.credit)::text AS amount
         FROM journal_line jl
-        JOIN journal_entry je ON je.id = jl.journal_entry_id
+        JOIN journal_entry je ON je.id = jl."journalEntryId"
         WHERE je.status = 'posted'
-          AND jl.account_id = ${bank.accountId}::uuid
+          AND jl."accountId" = ${bank.accountId}::uuid
       `);
 
       const glLines: GlBankLine[] = glRows.map((r) => ({

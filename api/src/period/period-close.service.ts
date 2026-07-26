@@ -110,7 +110,7 @@ export class PeriodCloseService {
     from?: string,
   ): Promise<IncExpRow[]> {
     const fromClause = from
-      ? Prisma.sql`AND je.entry_date > ${from}::date`
+      ? Prisma.sql`AND je."entryDate" > ${from}::date`
       : Prisma.empty;
 
     return tx.$queryRaw<IncExpRow[]>(Prisma.sql`
@@ -121,12 +121,12 @@ export class PeriodCloseService {
              COALESCE(SUM(jl.debit), 0)::text  AS debit,
              COALESCE(SUM(jl.credit), 0)::text AS credit
       FROM account a
-      JOIN journal_line jl  ON jl.account_id = a.id
-      JOIN journal_entry je ON je.id = jl.journal_entry_id
-      WHERE a.company_id = ${companyId}::uuid
+      JOIN journal_line jl  ON jl."accountId" = a.id
+      JOIN journal_entry je ON je.id = jl."journalEntryId"
+      WHERE a."companyId" = ${companyId}::uuid
         AND a.type IN ('income', 'expense')
         AND je.status = 'posted'
-        AND je.entry_date <= ${asOf}::date
+        AND je."entryDate" <= ${asOf}::date
         ${fromClause}
       GROUP BY a.id, a.code, a.name, a.type
       HAVING COALESCE(SUM(jl.debit), 0) <> COALESCE(SUM(jl.credit), 0)

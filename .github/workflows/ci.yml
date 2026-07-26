@@ -36,6 +36,23 @@ jobs:
           path: api/coverage
           if-no-files-found: ignore
 
+  api-integration:
+    name: API integration (real Postgres)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      # Boots its own PostgreSQL (embedded-postgres) and applies the real
+      # accounting_core_constraints.sql — asserts triggers + RLS end to end.
+      - name: DB guarantees (triggers + RLS)
+        run: npm run test:int
+
   api-typecheck:
     name: API typecheck
     runs-on: ubuntu-latest
