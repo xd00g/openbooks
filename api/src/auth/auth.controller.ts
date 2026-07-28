@@ -54,10 +54,10 @@ export class AuthController {
   @Get('oidc/start')
   async oidcStart() {
     if (!this.oidc.configured) throw new BadRequestException('OIDC not configured.');
-    const { url, state, codeVerifier } = await this.oidc.buildAuthorizeUrl();
-    // Sign the transaction so the callback can trust state + verifier.
+    const { url, state, codeVerifier, nonce } = await this.oidc.buildAuthorizeUrl();
+    // Sign the transaction so the callback can trust state + verifier + nonce.
     const tx = signJwt(
-      { sub: 'oidc-tx', state, codeVerifier },
+      { sub: 'oidc-tx', state, codeVerifier, nonce },
       process.env.JWT_SECRET ?? '',
       { expiresInSec: 600 },
     );
@@ -86,6 +86,7 @@ export class AuthController {
     const profile = await this.oidc.handleCallback(
       code,
       String(claims.codeVerifier),
+      String(claims.nonce ?? ''),
     );
     return this.auth.provisionFromProfile(profile);
   }

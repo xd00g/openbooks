@@ -15,3 +15,8 @@ export function codeChallengeS256(verifier: string): string {
 export function generateState(): string {
   return randomBytes(16).toString('base64url');
 }
+
+/** Opaque nonce bound to the id_token to prevent replay (OIDC core). */
+export function generateNonce(): string {
+  return randomBytes(16).toString('base64url');
+}
