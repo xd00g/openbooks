@@ -1,7 +1,7 @@
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Landmark, ReceiptText, CreditCard, BookOpen,
-  Users, BarChart3, Building2, ShieldCheck, ChevronDown, LogOut, Plus,
+  Users, BarChart3, Building2, ShieldCheck, ChevronDown, ChevronRight, LogOut, Plus,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -19,14 +19,33 @@ import Payroll from './pages/Payroll';
 import Banking from './pages/Banking';
 import Company from './pages/Company';
 import Admin from './pages/Admin';
+import Customers from './pages/Customers';
+import Vendors from './pages/Vendors';
+import Employees from './pages/Employees';
 
-const NAV: { to: string; label: string; icon: ReactNode }[] = [
+type NavLeaf = { to: string; label: string; icon?: ReactNode };
+type NavGroup = { label: string; icon: ReactNode; children: NavLeaf[] };
+type NavItem = NavLeaf | NavGroup;
+const isGroup = (i: NavItem): i is NavGroup => 'children' in i;
+
+const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/banking', label: 'Banking', icon: <Landmark size={18} /> },
-  { to: '/sales', label: 'Sales', icon: <ReceiptText size={18} /> },
-  { to: '/expenses', label: 'Expenses', icon: <CreditCard size={18} /> },
-  { to: '/accounting', label: 'Accounting', icon: <BookOpen size={18} /> },
-  { to: '/payroll', label: 'Employees & Payroll', icon: <Users size={18} /> },
+  {
+    label: 'Accounting', icon: <BookOpen size={18} />, children: [
+      { to: '/accounting', label: 'Chart of Accounts', icon: <BookOpen size={15} /> },
+      { to: '/sales', label: 'Sales & Invoices', icon: <ReceiptText size={15} /> },
+      { to: '/expenses', label: 'Bills', icon: <CreditCard size={15} /> },
+      { to: '/customers', label: 'Customers', icon: <Users size={15} /> },
+      { to: '/vendors', label: 'Vendors', icon: <Building2 size={15} /> },
+    ],
+  },
+  {
+    label: 'Employees & Payroll', icon: <Users size={18} />, children: [
+      { to: '/payroll', label: 'Payroll' },
+      { to: '/employees', label: 'Employee Management' },
+    ],
+  },
   { to: '/reports', label: 'Reports', icon: <BarChart3 size={18} /> },
   { to: '/company', label: 'Company', icon: <Building2 size={18} /> },
   { to: '/admin', label: 'Admin', icon: <ShieldCheck size={18} /> },
@@ -100,6 +119,41 @@ function useBranding() {
   return { logoUrl: (logo.data?.url as string) ?? null };
 }
 
+function NavLeafLink({ item, nested }: { item: NavLeaf; nested?: boolean }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 rounded-md py-2 text-sm text-[color:var(--ob-sidebar-text,#e2e8f0)] transition-colors hover:bg-white/10 ${nested ? 'pl-9 pr-3 text-[13px]' : 'px-3'} ${isActive ? 'bg-white/15 font-medium opacity-100' : 'opacity-75 hover:opacity-100'}`
+      }
+    >
+      {item.icon}
+      {item.label}
+    </NavLink>
+  );
+}
+
+function NavGroupItem({ group }: { group: NavGroup }) {
+  const loc = useLocation();
+  const childActive = group.children.some((c) => loc.pathname === c.to);
+  const [open, setOpen] = useState(childActive);
+  useEffect(() => { if (childActive) setOpen(true); }, [childActive]);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-[color:var(--ob-sidebar-text,#e2e8f0)] transition-colors hover:bg-white/10 ${childActive ? 'opacity-100' : 'opacity-75 hover:opacity-100'}`}
+      >
+        {group.icon}
+        <span className="flex-1 text-left">{group.label}</span>
+        {open ? <ChevronDown size={15} className="opacity-70" /> : <ChevronRight size={15} className="opacity-70" />}
+      </button>
+      {open && <div className="mt-1 space-y-1">{group.children.map((c) => <NavLeafLink key={c.to} item={c} nested />)}</div>}
+    </div>
+  );
+}
+
 function Sidebar() {
   const { me, logout } = useAuth();
   const { logoUrl } = useBranding();
@@ -113,21 +167,10 @@ function Sidebar() {
         <span className="text-lg font-semibold tracking-tight">OpenBooks</span>
       </div>
       <CompanySwitcher />
-      <nav className="flex-1 space-y-1 px-2">
-        {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[color:var(--ob-sidebar-text,#e2e8f0)] transition-colors hover:bg-white/10 ${
-                isActive ? 'bg-white/15 font-medium opacity-100' : 'opacity-75 hover:opacity-100'
-              }`
-            }
-          >
-            {item.icon}
-            {item.label}
-          </NavLink>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-2">
+        {NAV.map((item) => (isGroup(item)
+          ? <NavGroupItem key={item.label} group={item} />
+          : <NavLeafLink key={item.to} item={item} />
         ))}
       </nav>
       <div className="border-t border-white/10 px-4 py-3 text-[color:var(--ob-sidebar-text,#e2e8f0)]">
@@ -159,7 +202,10 @@ export default function App() {
           <Route path="/sales" element={<Sales />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/accounting" element={<Accounting />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/vendors" element={<Vendors />} />
           <Route path="/payroll" element={<Payroll />} />
+          <Route path="/employees" element={<Employees />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/company" element={<Company />} />
           <Route path="/admin" element={<Admin />} />
