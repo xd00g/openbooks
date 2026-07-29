@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Page, Table, Button, Empty, Modal } from '../components/ui';
+import ImportIifDialog from '../components/ImportIifDialog';
 
 /** Subtypes grouped by the top-level type they belong to. The server derives
  *  `type` from the chosen subtype, so the UI only needs to offer subtypes. */
@@ -65,6 +66,7 @@ export default function Accounting() {
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const q = useQuery<Account[]>({
     queryKey: ['accounts', companyId],
@@ -99,6 +101,7 @@ export default function Accounting() {
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
+          {editable && <Button variant="ghost" onClick={() => setImporting(true)}>Import (IIF)</Button>}
           {editable && <Button onClick={() => setAdding(true)}>Add account</Button>}
         </div>
       }
@@ -157,6 +160,12 @@ export default function Accounting() {
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); invalidate(); }}
           onError={setErr}
+        />
+      )}
+      {importing && (
+        <ImportIifDialog
+          onClose={() => setImporting(false)}
+          onImported={invalidate}
         />
       )}
     </Page>

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttachmentsService } from '../attachments/attachments.service';
+import { EncryptionService } from '../common/crypto/encryption.service';
 
 const EDITABLE = [
   'legalName',
@@ -25,12 +26,15 @@ export class CompanyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly attachments: AttachmentsService,
+    private readonly enc: EncryptionService,
   ) {}
 
   async get(companyId: string) {
     return this.prisma.forCompany(companyId, async (tx) => {
       const c = await tx.company.findUnique({ where: { id: companyId } });
       if (!c) throw new NotFoundException('Company not found.');
+      // EIN is stored encrypted at rest; expose the plaintext to callers.
+      if (c.ein) c.ein = this.enc.decrypt(c.ein);
       return c;
     });
   }
@@ -38,6 +42,8 @@ export class CompanyService {
   async update(companyId: string, body: Record<string, unknown>) {
     const data: Record<string, unknown> = {};
     for (const k of EDITABLE) if (k in body) data[k] = body[k];
+    // Encrypt the tax id before it hits the database.
+    if (typeof data.ein === 'string') data.ein = this.enc.encrypt(data.ein);
 
     const wantsJsonMerge =
       (body.settings && typeof body.settings === 'object') ||

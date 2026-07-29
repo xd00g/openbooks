@@ -3,6 +3,7 @@ import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { RequirePermissions } from './decorators';
 import { SystemSettingsService } from './system-settings.service';
 import { MailService } from './mail.service';
+import { EncryptionService } from '../common/crypto/encryption.service';
 
 /**
  * Deployment-level system settings (SSO / SMTP), managed from the Admin UI.
@@ -17,7 +18,14 @@ export class SystemSettingsController {
   constructor(
     private readonly settings: SystemSettingsService,
     private readonly mail: MailService,
+    private readonly enc: EncryptionService,
   ) {}
+
+  /** Encrypt a secret before storage. Preserved (already-encrypted) values pass
+   *  through unchanged; new plaintext gets encrypted. */
+  private secret(value: string): string {
+    return this.enc.encrypt(value) ?? '';
+  }
 
   @Get()
   @RequirePermissions('system:manage')
@@ -69,10 +77,12 @@ export class SystemSettingsController {
       issuerUrl: body.issuerUrl ?? '',
       clientId: body.clientId ?? '',
       redirectUri: body.redirectUri ?? '',
-      // Keep the stored secret when the client leaves it blank.
-      clientSecret: body.clientSecret?.trim()
-        ? body.clientSecret.trim()
-        : (prev.clientSecret ?? ''),
+      // Keep the stored (encrypted) secret when the client leaves it blank.
+      clientSecret: this.secret(
+        body.clientSecret?.trim()
+          ? body.clientSecret.trim()
+          : ((prev.clientSecret as string) ?? ''),
+      ),
     });
     return this.get().oidc;
   }
@@ -93,7 +103,9 @@ export class SystemSettingsController {
       entryPoint: body.entryPoint ?? '',
       issuer: body.issuer ?? 'openbooks',
       callbackUrl: body.callbackUrl ?? '',
-      cert: body.cert?.trim() ? body.cert.trim() : (prev.cert ?? ''),
+      cert: this.secret(
+        body.cert?.trim() ? body.cert.trim() : ((prev.cert as string) ?? ''),
+      ),
     });
     return this.get().saml;
   }
@@ -120,9 +132,11 @@ export class SystemSettingsController {
       username: body.username ?? '',
       fromEmail: body.fromEmail ?? '',
       fromName: body.fromName ?? 'OpenBooks',
-      password: body.password?.trim()
-        ? body.password.trim()
-        : (prev.password ?? ''),
+      password: this.secret(
+        body.password?.trim()
+          ? body.password.trim()
+          : ((prev.password as string) ?? ''),
+      ),
     });
     return this.get().smtp;
   }

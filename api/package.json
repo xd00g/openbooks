@@ -14,6 +14,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "db:constraints": "sh ../scripts/apply-sql-migrations.sh",
     "db:seed": "prisma db seed",
+    "backfill:encryption": "ts-node scripts/backfill-encryption.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest",

@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
+import { EncryptionModule } from './common/crypto/encryption.module';
 import { HealthController } from './health/health.controller';
 import { TenantMiddleware } from './common/tenant/tenant.middleware';
 import { LedgerModule } from './ledger/ledger.module';
@@ -17,11 +18,13 @@ import { PayrollModule } from './payroll/payroll.module';
 import { CompanyModule } from './company/company.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { ImportModule } from './import/import.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    EncryptionModule, // global field-level secret encryption
     AuditModule, // global audit interceptor
     AuthModule, // installs global auth + RBAC guards
     LedgerModule,
@@ -36,6 +39,7 @@ import { AuditModule } from './audit/audit.module';
     PayrollModule,
     CompanyModule,
     AdminModule,
+    ImportModule,
   ],
   controllers: [HealthController],
 })

@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { AdminPrismaService } from './admin-prisma.service';
+import { EncryptionService } from '../common/crypto/encryption.service';
 
 export interface OidcConfig {
   issuerUrl: string;
@@ -40,7 +41,10 @@ export class SystemSettingsService implements OnModuleInit {
   private readonly log = new Logger(SystemSettingsService.name);
   private cache: Record<string, Record<string, unknown>> = {};
 
-  constructor(private readonly admin: AdminPrismaService) {}
+  constructor(
+    private readonly admin: AdminPrismaService,
+    private readonly enc: EncryptionService,
+  ) {}
 
   async onModuleInit() {
     try {
@@ -86,7 +90,10 @@ export class SystemSettingsService implements OnModuleInit {
     return {
       issuerUrl: this.str(c.issuerUrl, process.env.OIDC_ISSUER_URL ?? ''),
       clientId: this.str(c.clientId, process.env.OIDC_CLIENT_ID ?? ''),
-      clientSecret: this.str(c.clientSecret, process.env.OIDC_CLIENT_SECRET ?? ''),
+      clientSecret:
+        this.enc.decrypt(
+          this.str(c.clientSecret, process.env.OIDC_CLIENT_SECRET ?? ''),
+        ) ?? '',
       redirectUri: this.str(c.redirectUri, process.env.OIDC_REDIRECT_URI ?? ''),
     };
   }
@@ -96,7 +103,8 @@ export class SystemSettingsService implements OnModuleInit {
     return {
       entryPoint: this.str(c.entryPoint, process.env.SAML_ENTRY_POINT ?? ''),
       issuer: this.str(c.issuer, process.env.SAML_ISSUER ?? 'openbooks'),
-      cert: this.str(c.cert, process.env.SAML_CERT ?? ''),
+      cert:
+        this.enc.decrypt(this.str(c.cert, process.env.SAML_CERT ?? '')) ?? '',
       callbackUrl: this.str(c.callbackUrl, process.env.SAML_CALLBACK_URL ?? ''),
     };
   }
@@ -112,7 +120,9 @@ export class SystemSettingsService implements OnModuleInit {
           ? c.secure
           : (process.env.SMTP_SECURE ?? 'false') === 'true',
       username: this.str(c.username, process.env.SMTP_USER ?? ''),
-      password: this.str(c.password, process.env.SMTP_PASSWORD ?? ''),
+      password:
+        this.enc.decrypt(this.str(c.password, process.env.SMTP_PASSWORD ?? '')) ??
+        '',
       fromEmail: this.str(c.fromEmail, process.env.SMTP_FROM_EMAIL ?? ''),
       fromName: this.str(c.fromName, process.env.SMTP_FROM_NAME ?? 'OpenBooks'),
     };

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EncryptionService } from '../../common/crypto/encryption.service';
 import { NormalizedTxn } from './provider.interface';
 import { parseCsv, parseOfx, CsvMapping } from './bankfeed.logic';
 import { SimpleFinProvider } from './simplefin.provider';
@@ -22,7 +23,10 @@ export interface ImportSummary {
  */
 @Injectable()
 export class BankFeedService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly enc: EncryptionService,
+  ) {}
 
   async importCsv(
     companyId: string,
@@ -60,7 +64,8 @@ export class BankFeedService {
       });
       const settings = {
         ...((c?.settings as Record<string, unknown>) ?? {}),
-        simplefinAccessUrl: accessUrl,
+        // Stored encrypted; syncSimpleFin decrypts before use.
+        simplefinAccessUrl: this.enc.encrypt(accessUrl),
       };
       await tx.company.update({
         where: { id: companyId },
@@ -130,7 +135,7 @@ export class BankFeedService {
 
       const provider = new SimpleFinProvider();
       const txns = await provider.fetchTransactions({
-        accessToken: bank.accessToken, // NOTE: decrypt at the app layer (design §13)
+        accessToken: this.enc.decrypt(bank.accessToken) ?? undefined,
         externalAccountId: bank.externalId ?? undefined,
         since: since ?? bank.lastSyncedAt?.toISOString().slice(0, 10),
       });
