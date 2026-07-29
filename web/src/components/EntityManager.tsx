@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Page, Table, Button, Empty, Modal } from './ui';
@@ -12,6 +12,10 @@ export interface FieldDef {
   writeOnly?: boolean; // never populated from the row (e.g. encrypted SSN); only sent if filled
   fromRow?: (row: any) => string; // custom value when editing (e.g. derive % from a decimal)
   full?: boolean; // span both columns
+  optionsEndpoint?: string; // type:'select' — fetch options from this endpoint
+  optionFilter?: (row: any) => boolean;
+  optionValue?: string; // default 'id'
+  optionLabel?: (row: any) => string;
 }
 
 export interface EntityConfig {
@@ -38,6 +42,18 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
   const [form, setForm] = useState<any | null>(null); // null = closed; {} = new; {...} = edit
 
   const list = useQuery({ queryKey: key, enabled: !!companyId, queryFn: () => api.get(config.endpoint) });
+
+  // Fetch options for any select fields that pull from an endpoint.
+  const optFields = config.fields.filter((f) => f.optionsEndpoint);
+  const optResults = useQueries({
+    queries: optFields.map((f) => ({ queryKey: [f.optionsEndpoint, companyId], enabled: !!companyId, queryFn: () => api.get(f.optionsEndpoint!) })),
+  });
+  const optionsByKey: Record<string, any[]> = {};
+  optFields.forEach((f, i) => {
+    let data = ((optResults[i].data as any[]) ?? []);
+    if (f.optionFilter) data = data.filter(f.optionFilter);
+    optionsByKey[f.key] = data;
+  });
 
   const openNew = () => {
     const f: any = {};
@@ -106,7 +122,16 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
                 {fd.label}
                 {fd.type === 'select' ? (
                   <select value={form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm">
-                    {(fd.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {fd.optionsEndpoint ? (
+                      <>
+                        <option value="">—</option>
+                        {(optionsByKey[fd.key] ?? []).map((o: any) => (
+                          <option key={o[fd.optionValue ?? 'id']} value={o[fd.optionValue ?? 'id']}>{fd.optionLabel ? fd.optionLabel(o) : o.name}</option>
+                        ))}
+                      </>
+                    ) : (
+                      (fd.options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+                    )}
                   </select>
                 ) : fd.type === 'checkbox' ? (
                   <div className="mt-1"><input type="checkbox" checked={!!form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.checked })} /></div>

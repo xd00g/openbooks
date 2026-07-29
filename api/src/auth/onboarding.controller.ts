@@ -40,6 +40,16 @@ export class OnboardingController {
       baseCurrency?: string;
       country?: string;
       organizationName?: string;
+      dba?: string;
+      ein?: string;
+      email?: string;
+      phone?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+      city?: string;
+      region?: string;
+      postalCode?: string;
+      fiscalYearStartMonth?: number;
     },
   ) {
     return this.onboarding.createCompanyForUser(user.id, body);

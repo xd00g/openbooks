@@ -22,29 +22,26 @@ export default function Expenses() {
   const refresh = () => qc.invalidateQueries({ queryKey: key('bills') });
   const wrap = (p: Promise<any>) => p.then(refresh).catch((e) => setErr(e.message));
 
-  const emptyVend = { displayName: '', companyName: '', contactName: '', email: '', phone: '', mobile: '', website: '', taxId: '', line1: '', city: '', region: '', postalCode: '', country: '', is1099: false };
-  const [vend, setVend] = useState(emptyVend);
-  const addVendor = useMutation({
-    mutationFn: () => {
-      const { line1, city, region, postalCode, country, is1099, ...rest } = vend;
-      const address = (line1 || city || region || postalCode || country)
-        ? { line1, city, region, postalCode, country } : undefined;
-      const payload: any = { is1099 };
-      if (address) payload.address = address;
-      for (const [k, v] of Object.entries(rest)) if (v) payload[k] = v;
-      return api.post('/expenses/vendors', payload);
-    },
-    onSuccess: () => { setVend(emptyVend); qc.invalidateQueries({ queryKey: key('vendors') }); },
-    onError: (e: any) => setErr(e.message),
-  });
+  const products = useQuery({ queryKey: key('items'), enabled: !!companyId, queryFn: () => api.get('/items') });
 
-  const [bill, setBill] = useState({ vendorId: '', issueDate: today(), dueDate: '', accountId: '', description: '', quantity: '1', unitPrice: '' });
+  const emptyLine = { itemId: '', accountId: '', description: '', quantity: '1', unitPrice: '' };
+  const billHead = { vendorId: '', number: '', issueDate: today(), dueDate: '' };
+  const [bill, setBill] = useState(billHead);
+  const [blines, setBlines] = useState<(typeof emptyLine)[]>([{ ...emptyLine }]);
+  const setBline = (i: number, k: string, v: string) => setBlines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
+  const addBline = () => setBlines((ls) => [...ls, { ...emptyLine }]);
+  const rmBline = (i: number) => setBlines((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
+  const pickProduct = (i: number, itemId: string) => {
+    const it = (products.data ?? []).find((p: any) => p.id === itemId);
+    setBlines((ls) => ls.map((l, j) => (j === i ? { ...l, itemId, accountId: it?.expenseAccountId || l.accountId, description: it ? (it.description || it.name) : l.description, unitPrice: it?.unitPrice != null ? String(it.unitPrice) : l.unitPrice } : l)));
+  };
+  const billTotal = blines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0);
   const createBill = useMutation({
     mutationFn: () => api.post('/expenses/bills', {
-      vendorId: bill.vendorId, issueDate: bill.issueDate, dueDate: bill.dueDate || undefined,
-      lines: [{ accountId: bill.accountId, description: bill.description, quantity: bill.quantity, unitPrice: bill.unitPrice }],
+      vendorId: bill.vendorId, number: bill.number || undefined, issueDate: bill.issueDate, dueDate: bill.dueDate || undefined,
+      lines: blines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: l.quantity || '1', unitPrice: l.unitPrice })),
     }),
-    onSuccess: () => { setBill({ ...bill, description: '', unitPrice: '' }); refresh(); },
+    onSuccess: () => { setBill(billHead); setBlines([{ ...emptyLine }]); refresh(); },
     onError: (e: any) => setErr(e.message),
   });
 
@@ -65,46 +62,47 @@ export default function Expenses() {
     <Page title="Expenses">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card title="New vendor">
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              ['displayName', 'Display name *'], ['companyName', 'Company'],
-              ['contactName', 'Contact person'], ['email', 'Email'],
-              ['phone', 'Phone'], ['mobile', 'Mobile'], ['website', 'Website'],
-              ['taxId', 'Tax ID (1099)'],
-              ['line1', 'Address'], ['city', 'City'], ['region', 'State/Region'],
-              ['postalCode', 'Postal code'], ['country', 'Country'],
-            ] as [Exclude<keyof typeof vend, 'is1099'>, string][]).map(([f, label]) => (
-              <input key={f} value={vend[f]} onChange={(e) => setVend({ ...vend, [f]: e.target.value })}
-                placeholder={label} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
-            ))}
-          </div>
-          <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-            <input type="checkbox" checked={vend.is1099} onChange={(e) => setVend({ ...vend, is1099: e.target.checked })} />
-            Track for 1099
-          </label>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-xs text-slate-500">{(vendors.data ?? []).length} vendors</span>
-            <Button onClick={() => addVendor.mutate()} disabled={!vend.displayName}>Add vendor</Button>
-          </div>
-        </Card>
-
+      <div className="mb-6">
         <Card title="New bill">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
+            <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2">
               <option value="">Select vendor…</option>
               {(vendors.data ?? []).map((v: any) => <option key={v.id} value={v.id}>{v.displayName}</option>)}
             </select>
-            <select value={bill.accountId} onChange={(e) => setBill({ ...bill, accountId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
-              <option value="">Expense account…</option>
-              {expenseAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
-            </select>
-            <input value={bill.description} onChange={(e) => setBill({ ...bill, description: e.target.value })} placeholder="Description" className="col-span-2 rounded-md border border-slate-300 px-2 py-1" />
-            <input value={bill.quantity} onChange={(e) => setBill({ ...bill, quantity: e.target.value })} placeholder="Qty" className="rounded-md border border-slate-300 px-2 py-1" />
-            <input value={bill.unitPrice} onChange={(e) => setBill({ ...bill, unitPrice: e.target.value })} placeholder="Unit price" className="rounded-md border border-slate-300 px-2 py-1" />
+            <input value={bill.number} onChange={(e) => setBill({ ...bill, number: e.target.value })} placeholder="Vendor ref # (optional)" className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" />
+            <input type="date" value={bill.issueDate} onChange={(e) => setBill({ ...bill, issueDate: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" />
+            <input type="date" value={bill.dueDate} onChange={(e) => setBill({ ...bill, dueDate: e.target.value })} placeholder="Due" className="rounded-md border border-slate-300 px-2 py-1" />
           </div>
-          <div className="mt-3"><Button onClick={() => createBill.mutate()} disabled={!bill.vendorId || !bill.accountId || !bill.unitPrice}>Create draft</Button></div>
+
+          <div className="mt-3 space-y-2">
+            {blines.map((l, i) => (
+              <div key={i} className="rounded-md border border-slate-200 p-2">
+                <div className="grid grid-cols-12 gap-1.5 text-sm">
+                  <select value={l.itemId} onChange={(e) => pickProduct(i, e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Product / service">
+                    <option value="">Product/service…</option>
+                    {(products.data ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <select value={l.accountId} onChange={(e) => setBline(i, 'accountId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Expense account">
+                    <option value="">Expense account…</option>
+                    {expenseAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
+                  </select>
+                  <input value={l.description} onChange={(e) => setBline(i, 'description', e.target.value)} placeholder="Description" className="col-span-8 rounded-md border border-slate-300 px-2 py-1 sm:col-span-4" />
+                  <input value={l.quantity} onChange={(e) => setBline(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
+                  <input value={l.unitPrice} onChange={(e) => setBline(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                  <span>Line: {money(Number(l.quantity || 0) * Number(l.unitPrice || 0))}</span>
+                  {blines.length > 1 && <button onClick={() => rmBline(i)} className="text-red-500 hover:underline">Remove</button>}
+                </div>
+              </div>
+            ))}
+            <button onClick={addBline} className="text-xs text-emerald-700 hover:underline">+ Add line item</button>
+          </div>
+
+          <div className="mt-3 flex items-end justify-between">
+            <div className="text-xs font-semibold text-slate-800">Total: {money(billTotal)}</div>
+            <Button onClick={() => createBill.mutate()} disabled={!bill.vendorId || !blines.some((l) => l.accountId && l.unitPrice)}>Create draft</Button>
+          </div>
         </Card>
       </div>
 

@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 
 export interface InvoicePdfData {
+  logo?: Buffer | null;
   company: { legalName: string; email?: string | null; phone?: string | null; address?: any };
   customer: { displayName: string; companyName?: string | null; email?: string | null; billingAddress?: any };
   invoice: {
@@ -32,12 +33,16 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     const money = (v: string) => `${data.invoice.currency} ${Number(v).toFixed(2)}`;
     const right = 560;
 
-    // ---- Header: company (left) + INVOICE (right) ----
-    doc.fontSize(20).fillColor('#0b3d2e').text(data.company.legalName, 50, 50);
+    // ---- Header: logo + company (left) + INVOICE (right) ----
+    let cx = 50;
+    if (data.logo) {
+      try { doc.image(data.logo, 50, 45, { fit: [70, 70] }); cx = 130; } catch { /* ignore bad image */ }
+    }
+    doc.fontSize(20).fillColor('#0b3d2e').text(data.company.legalName, cx, 50, { width: 200 });
     doc.fillColor('#555').fontSize(9);
     [data.company.email, data.company.phone, ...fmtAddr(data.company.address)]
       .filter(Boolean)
-      .forEach((l) => doc.text(String(l), 50));
+      .forEach((l) => doc.text(String(l), cx));
 
     doc.fillColor('#0b3d2e').fontSize(22).text('INVOICE', 350, 50, { width: 210, align: 'right' });
     doc.fillColor('#000').fontSize(10);
