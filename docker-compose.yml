@@ -139,6 +139,20 @@ services:
       - caddydata:/data
       - caddyconfig:/config
 
+  # Cloudflare Tunnel — outbound-only ingress (the VM has no inbound public IP).
+  # Create a tunnel in the Cloudflare Zero Trust dashboard, set the public
+  # hostname books.doogster.com -> service http://caddy:80, and put the tunnel
+  # token in .env as TUNNEL_TOKEN. Started with the `tunnel` profile.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - caddy
+
 volumes:
   pgdata:
   redisdata:
