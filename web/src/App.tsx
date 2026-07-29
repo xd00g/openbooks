@@ -71,11 +71,11 @@ function CompanySwitcher() {
   const memberships = me?.memberships ?? [];
   return (
     <div className="mx-3 mb-3">
-      <div className="flex items-center rounded-md bg-white/10 px-2 text-[color:var(--ob-sidebar-text,#e2e8f0)] ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/20 focus-within:ring-2 focus-within:ring-[color:var(--ob-accent,#6366f1)]">
+      <div className="relative rounded-lg bg-white/10 text-[color:var(--ob-sidebar-text,#e2e8f0)] shadow-sm ring-1 ring-inset ring-white/15 transition-all hover:bg-white/20 hover:shadow-md focus-within:ring-2 focus-within:ring-[color:var(--ob-accent,#6366f1)]">
         <select
           value={companyId ?? ''}
           onChange={(e) => setCompany(e.target.value)}
-          className="w-full cursor-pointer appearance-none bg-transparent py-2 text-sm font-medium focus:outline-none"
+          className="w-full cursor-pointer appearance-none rounded-lg bg-transparent py-2.5 pl-3 pr-8 text-sm font-semibold focus:outline-none"
         >
           {memberships.map((m) => (
             <option key={m.companyId} value={m.companyId} className="text-slate-900">
@@ -83,7 +83,8 @@ function CompanySwitcher() {
             </option>
           ))}
         </select>
-        <ChevronDown size={16} className="opacity-70" />
+        {/* Overlay icon only — pointer-events-none so clicks always land on the <select> beneath it. */}
+        <ChevronDown size={16} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70" />
       </div>
       <button
         onClick={() => setCreating(true)}

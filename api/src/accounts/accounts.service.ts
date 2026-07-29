@@ -7,6 +7,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { Money } from '../ledger/money';
+import { parseCsv, parseOfx } from '../banking/bankfeed/bankfeed.logic';
 
 /** Every account subtype maps to exactly one top-level type. Deriving the type
  *  from the subtype keeps the two columns from ever drifting out of sync. */
@@ -76,6 +77,50 @@ export class AccountsService {
   list(companyId: string) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.account.findMany({ orderBy: { code: 'asc' } }),
+    );
+  }
+
+  /** Bulk-import a bank statement (CSV or OFX/QFX) into an account: each row
+   *  becomes a posted transaction against a chosen category account. Money in
+   *  = debit this account; money out = credit it. Reclassify later as needed. */
+  async importTransactions(
+    companyId: string,
+    accountId: string,
+    input: { content: string; categoryAccountId: string; format?: 'csv' | 'ofx' },
+  ) {
+    if (!input.categoryAccountId) {
+      throw new BadRequestException('Pick a category account for the imported transactions.');
+    }
+    const looksOfx = /<OFX>|<STMTTRN>/i.test(input.content);
+    const txns =
+      input.format === 'ofx' || (input.format !== 'csv' && looksOfx)
+        ? parseOfx(input.content)
+        : parseCsv(input.content);
+    if (!txns.length) throw new BadRequestException('No transactions found in the file.');
+
+    return this.prisma.forCompany(
+      companyId,
+      async (tx) => {
+        let created = 0;
+        for (const t of txns) {
+          const amt = Money.of(t.amount);
+          if (amt.isZero()) continue;
+          const abs = amt.isNegative() ? amt.neg() : amt;
+          const lines = amt.isPositive()
+            ? [{ accountId, debit: abs, credit: Money.ZERO }, { accountId: input.categoryAccountId, debit: Money.ZERO, credit: abs }]
+            : [{ accountId, debit: Money.ZERO, credit: abs }, { accountId: input.categoryAccountId, debit: abs, credit: Money.ZERO }];
+          await this.ledger.createPostedEntry(tx, {
+            companyId,
+            entryDate: t.postedDate,
+            sourceType: 'bank' as never,
+            memo: t.description || 'Imported transaction',
+            lines,
+          });
+          created++;
+        }
+        return { created, total: txns.length };
+      },
+      { timeout: 120000, maxWait: 20000 },
     );
   }
 

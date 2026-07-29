@@ -43,6 +43,15 @@ export class AccountsController {
     return this.accounts.createTransaction(company(cid), id, body);
   }
 
+  @Post(':id/import')
+  importTransactions(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: { content: string; categoryAccountId: string; format?: 'csv' | 'ofx' },
+  ) {
+    return this.accounts.importTransactions(company(cid), id, body);
+  }
+
   @Post()
   @RequirePermissions('account:manage')
   create(

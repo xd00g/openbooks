@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { money, today } from '../lib/format';
+import { money, today, parseAmount, cleanAmount } from '../lib/format';
 import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
 import Attachments from '../components/Attachments';
 
@@ -28,10 +28,13 @@ export default function Sales() {
   const emptyLine = { itemId: '', accountId: '', description: '', quantity: '1', unitPrice: '', taxRateId: '' };
   const pickProduct = (i: number, itemId: string) => {
     const it = (products.data ?? []).find((p: any) => p.id === itemId);
+    // The product Name becomes the line's title (shown on the PDF/invoice);
+    // its Description becomes the subtitle underneath — keep them distinct
+    // rather than collapsing into one field.
     setLines((ls) => ls.map((l, j) => (j === i ? {
       ...l, itemId,
       accountId: it?.incomeAccountId || l.accountId,
-      description: it ? (it.description || it.name) : l.description,
+      description: it?.description ?? l.description,
       unitPrice: it?.unitPrice != null ? String(it.unitPrice) : l.unitPrice,
     } : l)));
   };
@@ -42,7 +45,9 @@ export default function Sales() {
   const addLine = () => setLines((ls) => [...ls, { ...emptyLine }]);
   const rmLine = (i: number) => setLines((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
   const ratePct = (id: string) => { const t = (taxRates.data ?? []).find((x: any) => x.id === id); return t ? Number(t.rate) : 0; };
-  const lineTotal = (l: typeof emptyLine) => (Number(l.quantity || 0) * Number(l.unitPrice || 0));
+  // parseAmount strips $ / commas / stray characters so a pasted "1,000,000"
+  // (or "$1,000,000.00") computes correctly instead of yielding NaN.
+  const lineTotal = (l: typeof emptyLine) => parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0');
   const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
   const taxTotal = lines.reduce((s, l) => s + lineTotal(l) * ratePct(l.taxRateId), 0);
   const createInvoice = useMutation({
@@ -52,7 +57,7 @@ export default function Sales() {
       dueDate: inv.dueDate || undefined,
       paymentTermId: inv.paymentTermId || undefined,
       memo: inv.memo || undefined,
-      lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: l.quantity || '1', unitPrice: l.unitPrice, taxRateId: l.taxRateId || undefined })),
+      lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: cleanAmount(l.quantity) || '1', unitPrice: cleanAmount(l.unitPrice), taxRateId: l.taxRateId || undefined })),
     }),
     onSuccess: () => { setInv(invHead); setLines([{ ...emptyLine }]); refresh(); },
     onError: (e: any) => setErr(e.message),
@@ -97,7 +102,15 @@ export default function Sales() {
             </label>
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
+            <div className="sm:col-span-3">Product / service</div>
+            <div className="sm:col-span-3">Income account</div>
+            <div className="sm:col-span-2">Description</div>
+            <div className="sm:col-span-1 text-right">Qty</div>
+            <div className="sm:col-span-1 text-right">Price</div>
+            <div className="sm:col-span-2">Tax</div>
+          </div>
+          <div className="mt-1 space-y-2">
             {lines.map((l, i) => (
               <div key={i} className="rounded-md border border-slate-200 p-2">
                 <div className="grid grid-cols-12 gap-1.5 text-sm">
@@ -110,31 +123,31 @@ export default function Sales() {
                     {incomeAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
                   </select>
                   <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-6 rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" />
-                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
-                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-4 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
+                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
+                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-4 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
                   <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" title="Sales tax">
                     <option value="">No sales tax</option>
                     {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
                   </select>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-                  <span>Line: {money(lineTotal(l))}</span>
+                  <span className="font-medium text-slate-700">{money(lineTotal(l))}</span>
                   {lines.length > 1 && <button onClick={() => rmLine(i)} className="text-red-500 hover:underline">Remove</button>}
                 </div>
               </div>
             ))}
-            <button onClick={addLine} className="text-xs text-emerald-700 hover:underline">+ Add line item</button>
+            <button onClick={addLine} className="text-xs font-medium text-emerald-700 hover:underline">+ Add line item</button>
           </div>
 
-          <input value={inv.memo} onChange={(e) => setInv({ ...inv, memo: e.target.value })} placeholder="Notes (appear on the PDF)" className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+          <input value={inv.memo} onChange={(e) => setInv({ ...inv, memo: e.target.value })} placeholder="Notes (appear on the PDF)" className="mt-3 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
 
-          <div className="mt-3 flex items-end justify-between">
-            <div className="text-xs text-slate-500">
-              <div>Subtotal: {money(subtotal)}</div>
-              <div>Tax: {money(taxTotal)}</div>
-              <div className="font-semibold text-slate-800">Total: {money(subtotal + taxTotal)}</div>
-            </div>
+          <div className="mt-4 flex flex-col items-end gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
             <Button onClick={() => createInvoice.mutate()} disabled={!inv.customerId || !lines.some((l) => l.accountId && l.unitPrice)}>Create draft</Button>
+            <div className="w-full max-w-[220px] rounded-lg bg-slate-50 p-3 text-sm">
+              <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{money(subtotal)}</span></div>
+              <div className="flex justify-between text-slate-500"><span>Tax</span><span>{money(taxTotal)}</span></div>
+              <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-base font-semibold text-slate-800"><span>Total</span><span>{money(subtotal + taxTotal)}</span></div>
+            </div>
           </div>
         </Card>
       </div>
@@ -144,8 +157,8 @@ export default function Sales() {
           <tr key={i.id}>
             <td className="px-4 py-2 font-medium">{i.number}</td>
             <td className="px-4 py-2 capitalize text-slate-500">{i.status.replace(/_/g, ' ')}</td>
-            <td className="px-4 py-2 text-right">{money(i.total)}</td>
-            <td className="px-4 py-2 text-right">{money(i.balanceDue)}</td>
+            <td className="px-4 py-2 text-right">{money(i.total, i.currency)}</td>
+            <td className="px-4 py-2 text-right">{money(i.balanceDue, i.currency)}</td>
             <td className="px-4 py-2 text-right">
               <span className="inline-flex gap-2">
                 <Button variant="ghost" onClick={() => downloadPdf(i)}>PDF</Button>

@@ -31,6 +31,13 @@ export default function Registers() {
     onError: (e: any) => setErr(e.message),
   });
 
+  const [imp, setImp] = useState<{ content: string; categoryAccountId: string } | null>(null);
+  const importTx = useMutation({
+    mutationFn: () => api.post(`/accounts/${acctId}/import`, imp),
+    onSuccess: (r: any) => { setImp(null); setErr(`✓ Imported ${r.created} of ${r.total} transactions`); qc.invalidateQueries({ queryKey: regKey }); },
+    onError: (e: any) => setErr(e.message),
+  });
+
   if (!companyId) return <Page title="Account Registers"><Empty>Select a company.</Empty></Page>;
 
   const all = accounts.data ?? [];
@@ -53,6 +60,7 @@ export default function Registers() {
             Show all accounts (not just bank / credit card)
           </label>
           {reg.data && <span className="ml-auto text-sm text-slate-500">Balance: <b className="text-slate-800">{money(reg.data.balance)}</b></span>}
+          {acctId && <Button variant="ghost" onClick={() => { setErr(''); setImp({ content: '', categoryAccountId: '' }); }}>Import CSV/OFX</Button>}
           {acctId && <Button onClick={() => { setErr(''); setTx(emptyTx); }}>Add transaction</Button>}
         </div>
       </Card>
@@ -98,6 +106,24 @@ export default function Registers() {
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setTx(null)}>Cancel</Button>
             <Button onClick={() => addTx.mutate()} disabled={!tx.amount || !tx.categoryAccountId}>Add</Button>
+          </div>
+        </Modal>
+      )}
+
+      {imp && (
+        <Modal title="Import transactions (CSV or OFX/QFX)" onClose={() => setImp(null)}>
+          <p className="mb-2 text-xs text-slate-500">Upload or paste a bank / credit-card export. CSV needs <code>date</code>, <code>amount</code> (signed) and <code>description</code> columns — separate debit/credit columns work too. Money in = deposit; money out = payment.</p>
+          <input type="file" accept=".csv,.ofx,.qfx,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = () => setImp((s) => (s ? { ...s, content: String(r.result ?? '') } : s)); r.readAsText(f); } }} className="mb-2 text-sm" />
+          <textarea value={imp.content} onChange={(e) => setImp({ ...imp, content: e.target.value })} placeholder="…or paste CSV / OFX here" className="h-28 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-xs" />
+          <label className="mt-2 block text-xs text-slate-500">Category account for these transactions (reclassify later as needed)
+            <select value={imp.categoryAccountId} onChange={(e) => setImp({ ...imp, categoryAccountId: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm">
+              <option value="">Select category…</option>
+              {all.filter((a: any) => a.id !== acctId).map((a: any) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+            </select>
+          </label>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setImp(null)}>Cancel</Button>
+            <Button onClick={() => importTx.mutate()} disabled={!imp.content.trim() || !imp.categoryAccountId || importTx.isPending}>{importTx.isPending ? 'Importing…' : 'Import'}</Button>
           </div>
         </Modal>
       )}

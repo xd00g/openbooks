@@ -86,7 +86,7 @@ export class SalesService {
   private async gatherPdf(tx: PrismaClient, companyId: string, id: string) {
     const inv = await tx.invoice.findFirst({
       where: { id },
-      include: { lines: { orderBy: { sortOrder: 'asc' } }, customer: true },
+      include: { lines: { orderBy: { sortOrder: 'asc' }, include: { item: true } }, customer: true },
     });
     if (!inv) throw new NotFoundException('Invoice not found.');
     const company = await tx.company.findFirst({ where: { id: companyId } });
@@ -104,7 +104,7 @@ export class SalesService {
         number: inv.number, issueDate: inv.issueDate, dueDate: inv.dueDate, currency: inv.currency,
         subtotal: inv.subtotal.toString(), taxTotal: inv.taxTotal.toString(), total: inv.total.toString(), memo: inv.memo,
       },
-      lines: inv.lines.map((l: any) => ({ description: l.description, quantity: l.quantity.toString(), unitPrice: l.unitPrice.toString(), amount: l.amount.toString() })),
+      lines: inv.lines.map((l: any) => ({ name: l.item?.name, description: l.description, quantity: l.quantity.toString(), unitPrice: l.unitPrice.toString(), amount: l.amount.toString() })),
     });
     return { buffer, invoice: inv };
   }
