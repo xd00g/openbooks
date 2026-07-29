@@ -55,12 +55,36 @@ export class SalesController {
       customerId: string;
       issueDate: string;
       dueDate?: string;
+      paymentTermId?: string;
       currency?: string;
       memo?: string;
       lines: DocLineInput[];
     },
   ) {
     return this.sales.createInvoice(company(cid), body);
+  }
+
+  @Patch('invoices/:id')
+  updateInvoice(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      customerId: string;
+      issueDate: string;
+      dueDate?: string;
+      paymentTermId?: string;
+      currency?: string;
+      memo?: string;
+      lines: DocLineInput[];
+    },
+  ) {
+    return this.sales.updateInvoice(company(cid), id, body);
+  }
+
+  @Post('invoices/:id/revert')
+  revertInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.sales.revertInvoice(company(cid), id);
   }
 
   @Post('invoices/:id/finalize')

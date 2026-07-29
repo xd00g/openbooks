@@ -42,6 +42,7 @@ export default function Sales() {
   const invHead = { customerId: '', issueDate: today(), dueDate: '', paymentTermId: '', memo: '' };
   const [inv, setInv] = useState(invHead);
   const [lines, setLines] = useState<(typeof emptyLine)[]>([{ ...emptyLine }]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const setLine = (i: number, k: string, v: string) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
   const addLine = () => setLines((ls) => [...ls, { ...emptyLine }]);
   const rmLine = (i: number) => setLines((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
@@ -51,18 +52,41 @@ export default function Sales() {
   const lineTotal = (l: typeof emptyLine) => parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0');
   const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
   const taxTotal = lines.reduce((s, l) => s + lineTotal(l) * ratePct(l.taxRateId), 0);
-  const createInvoice = useMutation({
-    mutationFn: () => api.post('/sales/invoices', {
-      customerId: inv.customerId,
-      issueDate: inv.issueDate,
-      dueDate: inv.dueDate || undefined,
-      paymentTermId: inv.paymentTermId || undefined,
-      memo: inv.memo || undefined,
-      lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: cleanAmount(l.quantity) || '1', unitPrice: cleanAmount(l.unitPrice), taxRateId: l.taxRateId || undefined })),
-    }),
-    onSuccess: () => { setInv(invHead); setLines([{ ...emptyLine }]); refresh(); },
+  const resetForm = () => { setInv(invHead); setLines([{ ...emptyLine }]); setEditingId(null); };
+  const saveInvoice = useMutation({
+    mutationFn: () => {
+      const payload = {
+        customerId: inv.customerId,
+        issueDate: inv.issueDate,
+        dueDate: inv.dueDate || undefined,
+        paymentTermId: inv.paymentTermId || undefined,
+        memo: inv.memo || undefined,
+        lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: cleanAmount(l.quantity) || '1', unitPrice: cleanAmount(l.unitPrice), taxRateId: l.taxRateId || undefined })),
+      };
+      return editingId ? api.patch(`/sales/invoices/${editingId}`, payload) : api.post('/sales/invoices', payload);
+    },
+    onSuccess: () => { resetForm(); refresh(); },
     onError: (e: any) => setErr(e.message),
   });
+  const editInvoice = async (i: any) => {
+    setErr('');
+    try {
+      const full: any = await api.get(`/sales/invoices/${i.id}`);
+      setInv({
+        customerId: full.customerId,
+        issueDate: String(full.issueDate).slice(0, 10),
+        dueDate: full.dueDate ? String(full.dueDate).slice(0, 10) : '',
+        paymentTermId: full.paymentTermId || '',
+        memo: full.memo || '',
+      });
+      setLines(full.lines.map((l: any) => ({
+        itemId: l.itemId || '', accountId: l.accountId, description: l.description || '',
+        quantity: l.quantity.toString(), unitPrice: l.unitPrice.toString(), taxRateId: l.taxRateId || '',
+      })));
+      setEditingId(i.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e: any) { setErr(e.message); }
+  };
   const downloadPdf = (i: any) => api.blobUrl(`/sales/invoices/${i.id}/pdf`).then((u) => window.open(u, '_blank')).catch((e) => setErr(e.message));
   const sendInvoice = (i: any) => {
     const cc = prompt('Email this invoice to the customer.\nOptional CC (comma-separated), or leave blank:');
@@ -72,6 +96,7 @@ export default function Sales() {
 
   const finalize = (id: string) => wrap(api.post(`/sales/invoices/${id}/finalize`));
   const voidInvoice = (id: string) => { if (confirm('Void this invoice? A reversing entry will be posted.')) wrap(api.post(`/sales/invoices/${id}/void`)); };
+  const revertInvoice = (id: string) => { if (confirm('Revert this invoice to draft? The posted entry will be reversed and it becomes editable again.')) wrap(api.post(`/sales/invoices/${id}/revert`)); };
   const deleteInvoice = (id: string) => { if (confirm('Delete this draft invoice?')) wrap(api.del(`/sales/invoices/${id}`)); };
   const receive = (i: any) => wrap(api.post('/sales/payments', {
     customerId: i.customerId, paymentDate: today(),
@@ -102,9 +127,9 @@ export default function Sales() {
     <Page title="Sales">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-        <Card title="New invoice">
-          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
+        <Card title={editingId ? 'Edit invoice' : 'New invoice'}>
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="sm:col-span-2 rounded-md border border-slate-300 px-2 py-1">
               <option value="">Select customer…</option>
               {(customers.data ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.displayName}</option>)}
@@ -161,7 +186,10 @@ export default function Sales() {
           <input value={inv.memo} onChange={(e) => setInv({ ...inv, memo: e.target.value })} placeholder="Notes (appear on the PDF)" className="mt-3 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
 
           <div className="mt-4 flex flex-col items-end gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
-            <Button onClick={() => createInvoice.mutate()} disabled={!inv.customerId || !lines.some((l) => l.accountId && l.unitPrice)}>Create draft</Button>
+            <div className="flex items-center gap-2">
+              {editingId && <button onClick={resetForm} className="text-xs text-slate-500 hover:underline">Cancel edit</button>}
+              <Button onClick={() => saveInvoice.mutate()} disabled={!inv.customerId || !lines.some((l) => l.accountId && l.unitPrice)}>{editingId ? 'Save changes' : 'Create draft'}</Button>
+            </div>
             <div className="w-full max-w-[220px] rounded-lg bg-slate-50 p-3 text-sm">
               <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{money(subtotal)}</span></div>
               <div className="flex justify-between text-slate-500"><span>Tax</span><span>{money(taxTotal)}</span></div>
@@ -172,6 +200,7 @@ export default function Sales() {
 
         <DocumentPreview
           kind="INVOICE"
+          number={editingId ? (invoices.data ?? []).find((i: any) => i.id === editingId)?.number : undefined}
           issueDate={inv.issueDate}
           dueDate={inv.dueDate || undefined}
           party={previewParty}
@@ -182,34 +211,41 @@ export default function Sales() {
         />
       </div>
 
-      <Table head={['Number', 'Status', 'Total', 'Balance', '']}>
-        {(invoices.data ?? []).map((i: any) => (
-          <tr key={i.id}>
-            <td className="px-4 py-2 font-medium">{i.number}</td>
-            <td className="px-4 py-2 capitalize text-slate-500">{i.status.replace(/_/g, ' ')}</td>
-            <td className="px-4 py-2 text-right">{money(i.total, i.currency)}</td>
-            <td className="px-4 py-2 text-right">{money(i.balanceDue, i.currency)}</td>
-            <td className="px-4 py-2 text-right">
-              <span className="inline-flex gap-2">
-                <Button variant="ghost" onClick={() => downloadPdf(i)}>PDF</Button>
-                {i.status !== 'void' && <Button variant="ghost" onClick={() => sendInvoice(i)}>Send</Button>}
-                <Button variant="ghost" onClick={() => setFilesFor(i.id)}>Files</Button>
-                {i.status === 'draft' && <Button variant="ghost" onClick={() => finalize(i.id)}>Finalize</Button>}
-                {i.status === 'draft' && <Button variant="ghost" onClick={() => deleteInvoice(i.id)}>Delete</Button>}
-                {(i.status === 'open' || i.status === 'partially_paid') && Number(i.balanceDue) > 0 && (
-                  <Button variant="ghost" onClick={() => receive(i)}>Receive</Button>
-                )}
-                {i.status === 'open' && Number(i.amountPaid ?? 0) === 0 && (
-                  <Button variant="ghost" onClick={() => voidInvoice(i.id)}>Void</Button>
-                )}
-              </span>
-            </td>
-          </tr>
-        ))}
-        {(invoices.data ?? []).length === 0 && (
-          <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No invoices yet.</td></tr>
-        )}
-      </Table>
+      <div className="mb-2 text-sm font-medium text-slate-600">Invoices</div>
+      <div className="max-h-[440px] overflow-y-auto rounded-xl">
+        <Table head={['Number', 'Status', 'Total', 'Balance', '']}>
+          {(invoices.data ?? []).map((i: any) => (
+            <tr key={i.id}>
+              <td className="px-4 py-2 font-medium">{i.number}</td>
+              <td className="px-4 py-2 capitalize text-slate-500">{i.status.replace(/_/g, ' ')}</td>
+              <td className="px-4 py-2 text-right">{money(i.total, i.currency)}</td>
+              <td className="px-4 py-2 text-right">{money(i.balanceDue, i.currency)}</td>
+              <td className="px-4 py-2 text-right">
+                <span className="inline-flex flex-wrap justify-end gap-2">
+                  <Button variant="ghost" onClick={() => downloadPdf(i)}>PDF</Button>
+                  {i.status !== 'void' && <Button variant="ghost" onClick={() => sendInvoice(i)}>Send</Button>}
+                  <Button variant="ghost" onClick={() => setFilesFor(i.id)}>Files</Button>
+                  {i.status === 'draft' && <Button variant="ghost" onClick={() => editInvoice(i)}>Edit</Button>}
+                  {i.status === 'draft' && <Button variant="ghost" onClick={() => finalize(i.id)}>Finalize</Button>}
+                  {i.status === 'draft' && <Button variant="ghost" onClick={() => deleteInvoice(i.id)}>Delete</Button>}
+                  {(i.status === 'open' || i.status === 'partially_paid') && Number(i.balanceDue) > 0 && (
+                    <Button variant="ghost" onClick={() => receive(i)}>Receive</Button>
+                  )}
+                  {i.status === 'open' && Number(i.amountPaid ?? 0) === 0 && (
+                    <>
+                      <Button variant="ghost" onClick={() => revertInvoice(i.id)}>Revert to Draft</Button>
+                      <Button variant="ghost" onClick={() => voidInvoice(i.id)}>Void</Button>
+                    </>
+                  )}
+                </span>
+              </td>
+            </tr>
+          ))}
+          {(invoices.data ?? []).length === 0 && (
+            <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No invoices yet.</td></tr>
+          )}
+        </Table>
+      </div>
 
       {filesFor && (
         <Modal title="Invoice attachments" onClose={() => setFilesFor(null)}>

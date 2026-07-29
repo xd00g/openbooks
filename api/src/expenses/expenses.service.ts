@@ -193,10 +193,86 @@ export class ExpensesService {
     });
   }
 
+  /** Undo Finalize: reverse the posted entry and put the bill back to draft
+   *  (editable) — only allowed pre-payment. See sales.service.revertInvoice. */
+  revertBill(companyId: string, id: string, userId?: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const bill = await tx.bill.findFirst({ where: { id } });
+      if (!bill) throw new NotFoundException('Bill not found.');
+      if (bill.status !== 'open') {
+        throw new BadRequestException('Only a finalized (not yet paid) bill can be reverted to draft.');
+      }
+      if (Number(bill.amountPaid) > 0) {
+        throw new BadRequestException('Unapply payments before reverting this bill to draft.');
+      }
+      if (bill.journalEntryId) {
+        await this.ledger.reverseEntry(tx, companyId, bill.journalEntryId, new Date(), userId);
+      }
+      await tx.bill.update({ where: { id }, data: { status: 'draft', journalEntryId: null } });
+      return { reverted: true };
+    });
+  }
+
+  /** Edit a DRAFT bill's header + lines in place. */
+  async updateBill(companyId: string, id: string, input: CreateBillInput) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const existing = await tx.bill.findFirst({ where: { id } });
+      if (!existing) throw new NotFoundException('Bill not found.');
+      if (existing.status !== 'draft') {
+        throw new BadRequestException('Only draft bills can be edited.');
+      }
+
+      let totals;
+      try {
+        totals = computeDocumentTotals(input.lines);
+      } catch (e) {
+        if (e instanceof DocumentError) throw new BadRequestException(e.message);
+        throw e;
+      }
+
+      await tx.billLine.deleteMany({ where: { billId: id } });
+      return tx.bill.update({
+        where: { id },
+        data: {
+          vendorId: input.vendorId,
+          number: input.number,
+          issueDate: new Date(input.issueDate),
+          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          currency: input.currency ?? existing.currency,
+          subtotal: totals.subtotal,
+          total: totals.total,
+          balanceDue: totals.total,
+          memo: input.memo,
+          lines: {
+            create: totals.lines.map((l, i) => ({
+              companyId,
+              accountId: l.accountId,
+              itemId: l.itemId ?? null,
+              description: l.description,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              amount: l.amount,
+              sortOrder: i,
+            })),
+          },
+        },
+        include: { lines: true },
+      });
+    });
+  }
+
   listBills(companyId: string) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.bill.findMany({ orderBy: { issueDate: 'desc' } }),
     );
+  }
+
+  getBill(companyId: string, id: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const bill = await tx.bill.findFirst({ where: { id }, include: { lines: true } });
+      if (!bill) throw new NotFoundException('Bill not found.');
+      return bill;
+    });
   }
 
   /** A vendor's full activity: every bill + every payment, chronological, with

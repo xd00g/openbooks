@@ -237,6 +237,76 @@ export class SalesService {
     });
   }
 
+  /** Edit a DRAFT invoice's header + lines in place (same total-computation
+   *  path as create). Only drafts are editable — once finalized, use Revert
+   *  to Draft first (pre-payment) or Void (post-payment / to correct history). */
+  async updateInvoice(companyId: string, id: string, input: CreateInvoiceInput) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const existing = await tx.invoice.findFirst({ where: { id } });
+      if (!existing) throw new NotFoundException('Invoice not found.');
+      if (existing.status !== 'draft') {
+        throw new BadRequestException('Only draft invoices can be edited.');
+      }
+
+      const taxRateIds = [...new Set(input.lines.map((l) => l.taxRateId).filter(Boolean))] as string[];
+      const rates = await tx.taxRate.findMany({
+        where: { id: { in: taxRateIds } },
+        select: { id: true, rate: true, liabilityAccountId: true },
+      });
+      const rateMap = new Map<string, TaxRateInfo>(
+        rates.map((r) => [r.id, { rate: r.rate.toString(), liabilityAccountId: r.liabilityAccountId }]),
+      );
+
+      let totals;
+      try {
+        totals = computeDocumentTotals(input.lines, rateMap);
+      } catch (e) {
+        if (e instanceof DocumentError) throw new BadRequestException(e.message);
+        throw e;
+      }
+
+      let dueDate = input.dueDate ? new Date(input.dueDate) : null;
+      if (!dueDate && input.paymentTermId) {
+        const term = await tx.paymentTerm.findFirst({ where: { id: input.paymentTermId } });
+        if (term) {
+          dueDate = new Date(input.issueDate);
+          dueDate.setDate(dueDate.getDate() + term.dueInDays);
+        }
+      }
+
+      await tx.invoiceLine.deleteMany({ where: { invoiceId: id } });
+      return tx.invoice.update({
+        where: { id },
+        data: {
+          customerId: input.customerId,
+          issueDate: new Date(input.issueDate),
+          dueDate,
+          paymentTermId: input.paymentTermId ?? null,
+          currency: input.currency ?? existing.currency,
+          subtotal: totals.subtotal,
+          taxTotal: totals.taxTotal,
+          total: totals.total,
+          balanceDue: totals.total,
+          memo: input.memo,
+          lines: {
+            create: totals.lines.map((l, i) => ({
+              companyId,
+              accountId: l.accountId,
+              itemId: l.itemId ?? null,
+              description: l.description,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              amount: l.amount,
+              taxRateId: l.taxRateId ?? null,
+              sortOrder: i,
+            })),
+          },
+        },
+        include: { lines: true },
+      });
+    });
+  }
+
   /** Finalize -> post to GL (Dr AR / Cr Income + Sales Tax). Idempotent. */
   finalizeInvoice(companyId: string, invoiceId: string, userId?: string) {
     return this.invoicePosting.post(companyId, invoiceId, userId);
@@ -270,6 +340,28 @@ export class SalesService {
       }
       await tx.invoice.update({ where: { id }, data: { status: 'void' } });
       return { voided: true };
+    });
+  }
+
+  /** Undo Finalize: reverse the posted entry and put the invoice back to draft
+   *  (editable) — for correcting a mistake before a payment has touched it.
+   *  Unlike void, the document itself isn't retired; only allowed pre-payment
+   *  and (via the period-open check inside reverseEntry) before period close. */
+  revertInvoice(companyId: string, id: string, userId?: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const inv = await tx.invoice.findFirst({ where: { id } });
+      if (!inv) throw new NotFoundException('Invoice not found.');
+      if (inv.status !== 'open') {
+        throw new BadRequestException('Only a finalized (not yet paid) invoice can be reverted to draft.');
+      }
+      if (Number(inv.amountPaid) > 0) {
+        throw new BadRequestException('Unapply payments before reverting this invoice to draft.');
+      }
+      if (inv.journalEntryId) {
+        await this.ledger.reverseEntry(tx, companyId, inv.journalEntryId, new Date(), userId);
+      }
+      await tx.invoice.update({ where: { id }, data: { status: 'draft', journalEntryId: null } });
+      return { reverted: true };
     });
   }
 

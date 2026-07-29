@@ -22,8 +22,40 @@ export default function Registers() {
   const [tx, setTx] = useState<typeof emptyTx | null>(null);
 
   const accounts = useQuery({ queryKey: key('accounts'), enabled: !!companyId, queryFn: () => api.get('/accounts') });
+  const bankAccounts = useQuery({ queryKey: key('bank-accounts'), enabled: !!companyId, queryFn: () => api.get('/banking/accounts') });
   const regKey = key(`register-${acctId}`);
   const reg = useQuery({ queryKey: regKey, enabled: !!companyId && !!acctId, queryFn: () => api.get(`/accounts/${acctId}/register`) });
+
+  // A GL account only shows up in Reconcile once it has a linked BankAccount
+  // row. This is the missing piece that made "add a bank account" and
+  // Reconcile feel disconnected from this screen.
+  const linkedAccountIds = new Set((bankAccounts.data ?? []).map((b: any) => b.accountId));
+  const isLinked = (id: string) => linkedAccountIds.has(id);
+
+  const [linkFor, setLinkFor] = useState<{ institution: string; mask: string } | null>(null);
+  const linkForReconciliation = useMutation({
+    mutationFn: () => api.post('/banking/accounts', { accountId: acctId, institution: linkFor?.institution || undefined, mask: linkFor?.mask || undefined }),
+    onSuccess: () => { setLinkFor(null); setErr('✓ Linked — this account now appears under Reconcile.'); qc.invalidateQueries({ queryKey: key('bank-accounts') }); },
+    onError: (e: any) => setErr(e.message),
+  });
+
+  const emptyNewAcct = { name: '', code: '', subtype: 'bank', institution: '', mask: '' };
+  const [newAcct, setNewAcct] = useState<typeof emptyNewAcct | null>(null);
+  const createAccount = useMutation({
+    mutationFn: async () => {
+      const created: any = await api.post('/accounts', { name: newAcct!.name, code: newAcct!.code, subtype: newAcct!.subtype });
+      await api.post('/banking/accounts', { accountId: created.id, institution: newAcct!.institution || undefined, mask: newAcct!.mask || undefined });
+      return created;
+    },
+    onSuccess: (created: any) => {
+      setNewAcct(null);
+      setErr('✓ Account created and linked for reconciliation.');
+      qc.invalidateQueries({ queryKey: key('accounts') });
+      qc.invalidateQueries({ queryKey: key('bank-accounts') });
+      setAcctId(created.id);
+    },
+    onError: (e: any) => setErr(e.message),
+  });
 
   const addTx = useMutation({
     mutationFn: () => api.post(`/accounts/${acctId}/transactions`, tx),
@@ -59,10 +91,34 @@ export default function Registers() {
             <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
             Show all accounts (not just bank / credit card)
           </label>
+          <Button variant="ghost" onClick={() => { setErr(''); setNewAcct({ ...emptyNewAcct }); }}>+ New account</Button>
           {reg.data && <span className="ml-auto text-sm text-slate-500">Balance: <b className="text-slate-800">{money(reg.data.balance)}</b></span>}
           {acctId && <Button variant="ghost" onClick={() => { setErr(''); setImp({ content: '', categoryAccountId: '' }); }}>Import CSV/OFX</Button>}
           {acctId && <Button onClick={() => { setErr(''); setTx(emptyTx); }}>Add transaction</Button>}
         </div>
+
+        {acctId && MONEY_SUBTYPES.includes(all.find((a: any) => a.id === acctId)?.subtype) && (
+          isLinked(acctId) ? (
+            <div className="mt-2 text-xs text-emerald-700">✓ Linked for reconciliation — this account appears under Banking → Reconcile.</div>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <span>Not linked for reconciliation yet — Reconcile won't see this account until it is.</span>
+              <button onClick={() => setLinkFor({ institution: '', mask: '' })} className="font-medium underline">Link now</button>
+            </div>
+          )
+        )}
+        {linkFor && (
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-2 text-sm">
+            <label className="text-xs text-slate-500">Institution (optional)
+              <input value={linkFor.institution} onChange={(e) => setLinkFor({ ...linkFor, institution: e.target.value })} className="mt-1 block w-40 rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <label className="text-xs text-slate-500">Last 4 (optional)
+              <input value={linkFor.mask} onChange={(e) => setLinkFor({ ...linkFor, mask: e.target.value })} maxLength={4} className="mt-1 block w-20 rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <Button variant="ghost" onClick={() => setLinkFor(null)}>Cancel</Button>
+            <Button onClick={() => linkForReconciliation.mutate()}>Link</Button>
+          </div>
+        )}
       </Card>
 
       {acctId && (
@@ -82,6 +138,36 @@ export default function Registers() {
             {reg.data && reg.data.rows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">No posted activity yet — add a transaction to get started.</td></tr>}
           </Table>
         </div>
+      )}
+
+      {newAcct && (
+        <Modal title="New account" onClose={() => setNewAcct(null)}>
+          <p className="mb-2 text-xs text-slate-500">Creates a chart-of-accounts entry and links it for bank reconciliation in one step.</p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <label className="text-xs text-slate-500">Name
+              <input value={newAcct.name} onChange={(e) => setNewAcct({ ...newAcct, name: e.target.value })} placeholder="e.g. Business Checking" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <label className="text-xs text-slate-500">Account code
+              <input value={newAcct.code} onChange={(e) => setNewAcct({ ...newAcct, code: e.target.value })} placeholder="e.g. 1010" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <label className="text-xs text-slate-500">Type
+              <select value={newAcct.subtype} onChange={(e) => setNewAcct({ ...newAcct, subtype: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1">
+                <option value="bank">Bank account</option>
+                <option value="credit_card">Credit card</option>
+              </select>
+            </label>
+            <label className="text-xs text-slate-500">Institution (optional)
+              <input value={newAcct.institution} onChange={(e) => setNewAcct({ ...newAcct, institution: e.target.value })} placeholder="e.g. Chase" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <label className="text-xs text-slate-500">Last 4 (optional)
+              <input value={newAcct.mask} onChange={(e) => setNewAcct({ ...newAcct, mask: e.target.value })} maxLength={4} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setNewAcct(null)}>Cancel</Button>
+            <Button onClick={() => createAccount.mutate()} disabled={!newAcct.name || !newAcct.code}>Create</Button>
+          </div>
+        </Modal>
       )}
 
       {tx && (
