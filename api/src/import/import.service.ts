@@ -243,6 +243,6 @@ export class ImportService {
       }
 
       return result;
-    });
+    }, { timeout: 120000, maxWait: 20000 });
   }
 }

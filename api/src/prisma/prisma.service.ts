@@ -28,14 +28,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   async forCompany<T>(
     companyId: string,
     fn: (tx: PrismaClient) => Promise<T>,
+    opts?: { timeout?: number; maxWait?: number },
   ): Promise<T> {
-    return this.$transaction(async (tx) => {
-      // set_config(..., true) => scoped to this transaction only.
-      await tx.$executeRawUnsafe(
-        `SELECT set_config('app.current_company', $1, true)`,
-        companyId,
-      );
-      return fn(tx as unknown as PrismaClient);
-    });
+    return this.$transaction(
+      async (tx) => {
+        // set_config(..., true) => scoped to this transaction only.
+        await tx.$executeRawUnsafe(
+          `SELECT set_config('app.current_company', $1, true)`,
+          companyId,
+        );
+        return fn(tx as unknown as PrismaClient);
+      },
+      // Default 5s is too short for bulk operations (e.g. a full IIF import of
+      // hundreds of accounts/vendors/employees). Callers can extend it.
+      { timeout: opts?.timeout ?? 5000, maxWait: opts?.maxWait ?? 5000 },
+    );
   }
 }

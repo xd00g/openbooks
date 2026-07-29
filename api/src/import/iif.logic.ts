@@ -242,12 +242,12 @@ export function toPaymentTerms(parsed: ParsedIif): IifTerm[] {
     const name = pick(row, 'NAME');
     if (!name) continue;
     const due = parseInt(pick(row, 'DUEDAYS', 'DUE'), 10);
-    const discPct = pick(row, 'DISCPER', 'DISCOUNTPCT');
+    const discPctNum = Number(pick(row, 'DISCPER', 'DISCOUNTPCT'));
     const discDays = parseInt(pick(row, 'DISCDAYS'), 10);
     out.push({
       name,
       dueInDays: Number.isFinite(due) ? due : 30,
-      discountPercent: discPct ? (Number(discPct) / 100).toFixed(6) : undefined,
+      discountPercent: Number.isFinite(discPctNum) && discPctNum > 0 ? (discPctNum / 100).toFixed(6) : undefined,
       discountDays: Number.isFinite(discDays) ? discDays : undefined,
     });
   }
