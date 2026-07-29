@@ -15,6 +15,7 @@ import {
 import { Money } from '../ledger/money';
 import { MailService } from '../auth/mail.service';
 import { buildInvoicePdf } from './invoice-pdf';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 export interface CustomerInput {
   displayName: string;
@@ -60,7 +61,28 @@ export class SalesService {
     private readonly mail: MailService,
   ) {}
 
-  /** Gather invoice + customer + company and render a PDF buffer. */
+  private s3client?: S3Client;
+  private s3() {
+    if (!this.s3client) {
+      this.s3client = new S3Client({
+        region: process.env.S3_REGION ?? 'us-east-1',
+        endpoint: process.env.S3_ENDPOINT, // internal endpoint for server-side fetch
+        forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true',
+        credentials: { accessKeyId: process.env.S3_ACCESS_KEY ?? '', secretAccessKey: process.env.S3_SECRET_KEY ?? '' },
+      });
+    }
+    return this.s3client;
+  }
+  private async fetchObject(key: string): Promise<Buffer | null> {
+    try {
+      const res = await this.s3().send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET ?? 'openbooks', Key: key }));
+      return Buffer.from(await (res.Body as any).transformToByteArray());
+    } catch {
+      return null;
+    }
+  }
+
+  /** Gather invoice + customer + company (+ logo) and render a PDF buffer. */
   private async gatherPdf(tx: PrismaClient, companyId: string, id: string) {
     const inv = await tx.invoice.findFirst({
       where: { id },
@@ -68,7 +90,9 @@ export class SalesService {
     });
     if (!inv) throw new NotFoundException('Invoice not found.');
     const company = await tx.company.findFirst({ where: { id: companyId } });
+    const logo = company?.logoStorageKey ? await this.fetchObject(company.logoStorageKey) : null;
     const buffer = await buildInvoicePdf({
+      logo,
       company: {
         legalName: company?.legalName ?? 'Company',
         email: company?.email,

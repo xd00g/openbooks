@@ -24,6 +24,8 @@ export default function Items() {
           { value: 'bundle', label: 'Bundle' },
         ] },
         { key: 'unitPrice', label: 'Unit price' },
+        { key: 'incomeAccountId', label: 'Income account (for invoices)', type: 'select', optionsEndpoint: '/accounts', optionFilter: (a: any) => a.type === 'income', optionLabel: (a: any) => `${a.code} · ${a.name}` },
+        { key: 'expenseAccountId', label: 'Expense account (for bills)', type: 'select', optionsEndpoint: '/accounts', optionFilter: (a: any) => a.type === 'expense', optionLabel: (a: any) => `${a.code} · ${a.name}` },
         { key: 'description', label: 'Description', full: true },
       ],
     }} />

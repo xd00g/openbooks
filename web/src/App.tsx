@@ -75,7 +75,7 @@ function CompanySwitcher() {
         <select
           value={companyId ?? ''}
           onChange={(e) => setCompany(e.target.value)}
-          className="w-full cursor-pointer bg-transparent py-2 text-sm font-medium focus:outline-none"
+          className="w-full cursor-pointer appearance-none bg-transparent py-2 text-sm font-medium focus:outline-none"
         >
           {memberships.map((m) => (
             <option key={m.companyId} value={m.companyId} className="text-slate-900">

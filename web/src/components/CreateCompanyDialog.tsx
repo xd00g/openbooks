@@ -22,6 +22,16 @@ export default function CreateCompanyDialog({
     organizationName: '',
     baseCurrency: 'USD',
     country: 'US',
+    dba: '',
+    ein: '',
+    email: '',
+    phone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    region: '',
+    postalCode: '',
+    fiscalYearStartMonth: '1',
   });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,7 +44,7 @@ export default function CreateCompanyDialog({
     setBusy(true);
     setErr('');
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, any> = {
         legalName: form.legalName.trim(),
         baseCurrency: form.baseCurrency.trim() || 'USD',
         country: form.country.trim() || 'US',
@@ -42,6 +52,10 @@ export default function CreateCompanyDialog({
       if (!hasOrg && form.organizationName.trim()) {
         payload.organizationName = form.organizationName.trim();
       }
+      for (const k of ['dba', 'ein', 'email', 'phone', 'addressLine1', 'addressLine2', 'city', 'region', 'postalCode'] as const) {
+        if (form[k].trim()) payload[k] = form[k].trim();
+      }
+      if (form.fiscalYearStartMonth) payload.fiscalYearStartMonth = Number(form.fiscalYearStartMonth);
       const res = await api.post<{ companyId: string }>('/onboarding/company', payload);
       setCompany(res.companyId);
       await refresh();
@@ -105,6 +119,27 @@ export default function CreateCompanyDialog({
             />
           </label>
         </div>
+
+        <details className="rounded-md border border-slate-200 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-slate-600">More details (optional)</summary>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            {([
+              ['dba', 'DBA / trade name'], ['ein', 'EIN / Tax ID (encrypted)'],
+              ['email', 'Email'], ['phone', 'Phone'],
+              ['addressLine1', 'Address line 1'], ['addressLine2', 'Address line 2'],
+              ['city', 'City'], ['region', 'State / Region'], ['postalCode', 'Postal code'],
+            ] as [keyof typeof form, string][]).map(([k, label]) => (
+              <label key={k} className="block">
+                <span className="mb-1 block text-xs text-slate-500">{label}</span>
+                <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className={field} />
+              </label>
+            ))}
+            <label className="block">
+              <span className="mb-1 block text-xs text-slate-500">Fiscal year start month (1–12)</span>
+              <input value={form.fiscalYearStartMonth} onChange={(e) => setForm({ ...form, fiscalYearStartMonth: e.target.value.replace(/\D/g, '').slice(0, 2) })} className={field} />
+            </label>
+          </div>
+        </details>
       </div>
       <div className="mt-5 flex justify-end gap-2">
         {!firstRun && <Button variant="ghost" onClick={onClose}>Cancel</Button>}

@@ -19,29 +19,22 @@ export default function Sales() {
   const incomeAccounts = (accounts.data ?? []).filter((a: any) => a.type === 'income');
   const taxRates = useQuery({ queryKey: key('tax-rates'), enabled: !!companyId, queryFn: () => api.get('/tax/rates') });
   const terms = useQuery({ queryKey: key('payment-terms'), enabled: !!companyId, queryFn: () => api.get('/payment-terms') });
+  const products = useQuery({ queryKey: key('items'), enabled: !!companyId, queryFn: () => api.get('/items') });
 
   const refresh = () => { qc.invalidateQueries({ queryKey: key('invoices') }); };
   const wrap = (p: Promise<any>) => p.then(refresh).catch((e) => setErr(e.message));
 
-  // new customer (full contact info)
-  const emptyCust = { displayName: '', companyName: '', contactName: '', email: '', phone: '', mobile: '', website: '', line1: '', city: '', region: '', postalCode: '', country: '' };
-  const [cust, setCust] = useState(emptyCust);
-  const addCustomer = useMutation({
-    mutationFn: () => {
-      const { line1, city, region, postalCode, country, ...rest } = cust;
-      const billingAddress = (line1 || city || region || postalCode || country)
-        ? { line1, city, region, postalCode, country } : undefined;
-      const payload: any = {};
-      if (billingAddress) payload.billingAddress = billingAddress;
-      for (const [k, v] of Object.entries(rest)) if (v) payload[k] = v;
-      return api.post('/sales/customers', payload);
-    },
-    onSuccess: () => { setCust(emptyCust); qc.invalidateQueries({ queryKey: key('customers') }); },
-    onError: (e: any) => setErr(e.message),
-  });
-
   // new invoice (multi-line)
-  const emptyLine = { accountId: '', description: '', quantity: '1', unitPrice: '', taxRateId: '' };
+  const emptyLine = { itemId: '', accountId: '', description: '', quantity: '1', unitPrice: '', taxRateId: '' };
+  const pickProduct = (i: number, itemId: string) => {
+    const it = (products.data ?? []).find((p: any) => p.id === itemId);
+    setLines((ls) => ls.map((l, j) => (j === i ? {
+      ...l, itemId,
+      accountId: it?.incomeAccountId || l.accountId,
+      description: it ? (it.description || it.name) : l.description,
+      unitPrice: it?.unitPrice != null ? String(it.unitPrice) : l.unitPrice,
+    } : l)));
+  };
   const invHead = { customerId: '', issueDate: today(), dueDate: '', paymentTermId: '', memo: '' };
   const [inv, setInv] = useState(invHead);
   const [lines, setLines] = useState<(typeof emptyLine)[]>([{ ...emptyLine }]);
@@ -59,7 +52,7 @@ export default function Sales() {
       dueDate: inv.dueDate || undefined,
       paymentTermId: inv.paymentTermId || undefined,
       memo: inv.memo || undefined,
-      lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, description: l.description, quantity: l.quantity || '1', unitPrice: l.unitPrice, taxRateId: l.taxRateId || undefined })),
+      lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: l.quantity || '1', unitPrice: l.unitPrice, taxRateId: l.taxRateId || undefined })),
     }),
     onSuccess: () => { setInv(invHead); setLines([{ ...emptyLine }]); refresh(); },
     onError: (e: any) => setErr(e.message),
@@ -81,29 +74,10 @@ export default function Sales() {
     <Page title="Sales">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card title="New customer">
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              ['displayName', 'Display name *'], ['companyName', 'Company'],
-              ['contactName', 'Contact person'], ['email', 'Email'],
-              ['phone', 'Phone'], ['mobile', 'Mobile'], ['website', 'Website'],
-              ['line1', 'Address'], ['city', 'City'], ['region', 'State/Region'],
-              ['postalCode', 'Postal code'], ['country', 'Country'],
-            ] as [keyof typeof cust, string][]).map(([f, label]) => (
-              <input key={f} value={cust[f]} onChange={(e) => setCust({ ...cust, [f]: e.target.value })}
-                placeholder={label} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
-            ))}
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-xs text-slate-500">{(customers.data ?? []).length} customers</span>
-            <Button onClick={() => addCustomer.mutate()} disabled={!cust.displayName}>Add customer</Button>
-          </div>
-        </Card>
-
+      <div className="mb-6">
         <Card title="New invoice">
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
+            <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="sm:col-span-2 rounded-md border border-slate-300 px-2 py-1">
               <option value="">Select customer…</option>
               {(customers.data ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.displayName}</option>)}
             </select>
@@ -118,15 +92,19 @@ export default function Sales() {
           <div className="mt-3 space-y-2">
             {lines.map((l, i) => (
               <div key={i} className="rounded-md border border-slate-200 p-2">
-                <div className="grid grid-cols-2 gap-1.5 text-sm">
-                  <select value={l.accountId} onChange={(e) => setLine(i, 'accountId', e.target.value)} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+                <div className="grid grid-cols-12 gap-1.5 text-sm">
+                  <select value={l.itemId} onChange={(e) => pickProduct(i, e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Product / service">
+                    <option value="">Product/service…</option>
+                    {(products.data ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <select value={l.accountId} onChange={(e) => setLine(i, 'accountId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Income account">
                     <option value="">Income account…</option>
                     {incomeAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
                   </select>
-                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-2 rounded-md border border-slate-300 px-2 py-1" />
-                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="rounded-md border border-slate-300 px-2 py-1" />
-                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Unit price" className="rounded-md border border-slate-300 px-2 py-1" />
-                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-6 rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" />
+                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
+                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-4 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
+                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" title="Sales tax">
                     <option value="">No sales tax</option>
                     {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
                   </select>

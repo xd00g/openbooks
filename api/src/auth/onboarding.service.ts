@@ -3,6 +3,7 @@ import { AdminPrismaService } from './admin-prisma.service';
 import { CoaSeederService } from '../accounts/coa-seeder.service';
 import { AuthService } from './auth.service';
 import { hashPassword } from './crypto/password';
+import { EncryptionService } from '../common/crypto/encryption.service';
 
 interface OnboardInput {
   organizationName: string;
@@ -25,6 +26,7 @@ export class OnboardingService {
     private readonly admin: AdminPrismaService,
     private readonly coaSeeder: CoaSeederService,
     private readonly auth: AuthService,
+    private readonly enc: EncryptionService,
   ) {}
 
   async createOrganization(input: OnboardInput) {
@@ -109,6 +111,16 @@ export class OnboardingService {
       baseCurrency?: string;
       country?: string;
       organizationName?: string;
+      dba?: string;
+      ein?: string;
+      email?: string;
+      phone?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+      city?: string;
+      region?: string;
+      postalCode?: string;
+      fiscalYearStartMonth?: number;
     },
   ) {
     const legalName = input?.legalName?.trim();
@@ -153,6 +165,16 @@ export class OnboardingService {
           legalName,
           baseCurrency: input.baseCurrency?.trim() || 'USD',
           country: input.country?.trim() || 'US',
+          dba: input.dba?.trim() || null,
+          ein: input.ein?.trim() ? this.enc.encrypt(input.ein.trim()) : null,
+          email: input.email?.trim() || null,
+          phone: input.phone?.trim() || null,
+          addressLine1: input.addressLine1?.trim() || null,
+          addressLine2: input.addressLine2?.trim() || null,
+          city: input.city?.trim() || null,
+          region: input.region?.trim() || null,
+          postalCode: input.postalCode?.trim() || null,
+          fiscalYearStartMonth: input.fiscalYearStartMonth ?? 1,
         },
       });
 
