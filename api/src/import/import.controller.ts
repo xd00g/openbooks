@@ -41,6 +41,7 @@ export class ImportController {
       vendors?: boolean;
       employees?: boolean;
       items?: boolean;
+      paymentTerms?: boolean;
     },
   ) {
     if (!body?.content?.trim()) throw new BadRequestException('content is required.');
@@ -50,6 +51,7 @@ export class ImportController {
       vendors: body.vendors,
       employees: body.employees,
       items: body.items,
+      paymentTerms: body.paymentTerms,
     });
   }
 }

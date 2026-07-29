@@ -17,6 +17,8 @@ export default function Sales() {
   const invoices = useQuery({ queryKey: key('invoices'), enabled: !!companyId, queryFn: () => api.get('/sales/invoices') });
   const accounts = useQuery({ queryKey: key('accounts'), enabled: !!companyId, queryFn: () => api.get('/accounts') });
   const incomeAccounts = (accounts.data ?? []).filter((a: any) => a.type === 'income');
+  const taxRates = useQuery({ queryKey: key('tax-rates'), enabled: !!companyId, queryFn: () => api.get('/tax/rates') });
+  const terms = useQuery({ queryKey: key('payment-terms'), enabled: !!companyId, queryFn: () => api.get('/payment-terms') });
 
   const refresh = () => { qc.invalidateQueries({ queryKey: key('invoices') }); };
   const wrap = (p: Promise<any>) => p.then(refresh).catch((e) => setErr(e.message));
@@ -39,13 +41,14 @@ export default function Sales() {
   });
 
   // new invoice
-  const [inv, setInv] = useState({ customerId: '', issueDate: today(), dueDate: '', accountId: '', description: '', quantity: '1', unitPrice: '' });
+  const [inv, setInv] = useState({ customerId: '', issueDate: today(), dueDate: '', paymentTermId: '', accountId: '', description: '', quantity: '1', unitPrice: '', taxRateId: '' });
   const createInvoice = useMutation({
     mutationFn: () => api.post('/sales/invoices', {
       customerId: inv.customerId,
       issueDate: inv.issueDate,
       dueDate: inv.dueDate || undefined,
-      lines: [{ accountId: inv.accountId, description: inv.description, quantity: inv.quantity, unitPrice: inv.unitPrice }],
+      paymentTermId: inv.paymentTermId || undefined,
+      lines: [{ accountId: inv.accountId, description: inv.description, quantity: inv.quantity, unitPrice: inv.unitPrice, taxRateId: inv.taxRateId || undefined }],
     }),
     onSuccess: () => { setInv({ ...inv, description: '', unitPrice: '' }); refresh(); },
     onError: (e: any) => setErr(e.message),
@@ -98,8 +101,16 @@ export default function Sales() {
             <input value={inv.description} onChange={(e) => setInv({ ...inv, description: e.target.value })} placeholder="Description" className="col-span-2 rounded-md border border-slate-300 px-2 py-1" />
             <input value={inv.quantity} onChange={(e) => setInv({ ...inv, quantity: e.target.value })} placeholder="Qty" className="rounded-md border border-slate-300 px-2 py-1" />
             <input value={inv.unitPrice} onChange={(e) => setInv({ ...inv, unitPrice: e.target.value })} placeholder="Unit price" className="rounded-md border border-slate-300 px-2 py-1" />
+            <select value={inv.taxRateId} onChange={(e) => setInv({ ...inv, taxRateId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+              <option value="">No sales tax</option>
+              {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
+            </select>
+            <select value={inv.paymentTermId} onChange={(e) => setInv({ ...inv, paymentTermId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+              <option value="">Payment term (sets due date)…</option>
+              {(terms.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} — net {t.dueInDays}d</option>)}
+            </select>
             <input type="date" value={inv.issueDate} onChange={(e) => setInv({ ...inv, issueDate: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" />
-            <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" />
+            <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} placeholder="Due (override)" className="rounded-md border border-slate-300 px-2 py-1" />
           </div>
           <div className="mt-3">
             <Button onClick={() => createInvoice.mutate()} disabled={!inv.customerId || !inv.accountId || !inv.unitPrice}>Create draft</Button>

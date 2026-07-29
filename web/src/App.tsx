@@ -1,7 +1,7 @@
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Landmark, ReceiptText, CreditCard, BookOpen,
-  Users, BarChart3, Building2, ShieldCheck, ChevronDown, ChevronRight, LogOut, Plus, Package,
+  Users, BarChart3, Building2, ShieldCheck, ChevronDown, ChevronRight, LogOut, Plus, Package, Percent, CalendarClock, Wallet,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +23,9 @@ import Customers from './pages/Customers';
 import Vendors from './pages/Vendors';
 import Employees from './pages/Employees';
 import Items from './pages/Items';
+import TaxRates from './pages/TaxRates';
+import PaymentTerms from './pages/PaymentTerms';
+import Registers from './pages/Registers';
 
 type NavLeaf = { to: string; label: string; icon?: ReactNode };
 type NavGroup = { label: string; icon: ReactNode; children: NavLeaf[] };
@@ -31,7 +34,12 @@ const isGroup = (i: NavItem): i is NavGroup => 'children' in i;
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { to: '/banking', label: 'Banking', icon: <Landmark size={18} /> },
+  {
+    label: 'Banking', icon: <Landmark size={18} />, children: [
+      { to: '/banking', label: 'Integrations & Import', icon: <Landmark size={15} /> },
+      { to: '/registers', label: 'Accounts', icon: <Wallet size={15} /> },
+    ],
+  },
   {
     label: 'Accounting', icon: <BookOpen size={18} />, children: [
       { to: '/accounting', label: 'Chart of Accounts', icon: <BookOpen size={15} /> },
@@ -40,6 +48,8 @@ const NAV: NavItem[] = [
       { to: '/customers', label: 'Customers', icon: <Users size={15} /> },
       { to: '/vendors', label: 'Vendors', icon: <Building2 size={15} /> },
       { to: '/items', label: 'Products & Services', icon: <Package size={15} /> },
+      { to: '/tax', label: 'Sales Tax', icon: <Percent size={15} /> },
+      { to: '/payment-terms', label: 'Payment Terms', icon: <CalendarClock size={15} /> },
     ],
   },
   {
@@ -201,12 +211,15 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/banking" element={<Banking />} />
+          <Route path="/registers" element={<Registers />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/vendors" element={<Vendors />} />
           <Route path="/items" element={<Items />} />
+          <Route path="/tax" element={<TaxRates />} />
+          <Route path="/payment-terms" element={<PaymentTerms />} />
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/reports" element={<Reports />} />

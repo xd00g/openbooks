@@ -20,6 +20,8 @@ import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { ImportModule } from './import/import.module';
 import { ItemsModule } from './items/items.module';
+import { TaxModule } from './tax/tax.module';
+import { PaymentTermsModule } from './payment-terms/payment-terms.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { ItemsModule } from './items/items.module';
     AdminModule,
     ImportModule,
     ItemsModule,
+    TaxModule,
+    PaymentTermsModule,
   ],
   controllers: [HealthController],
 })

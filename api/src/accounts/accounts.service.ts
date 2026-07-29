@@ -42,6 +42,39 @@ export class AccountsService {
     );
   }
 
+  /** Account register: posted ledger activity for one account with a running
+   *  balance (debit − credit), oldest first. Powers the banking "Accounts" view. */
+  register(companyId: string, accountId: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const account = await tx.account.findFirst({ where: { id: accountId } });
+      if (!account) throw new NotFoundException('Account not found.');
+      const lines = await tx.journalLine.findMany({
+        where: { accountId, entry: { status: 'posted' } },
+        include: { entry: { select: { entryDate: true, memo: true, sourceType: true } } },
+        orderBy: [{ entry: { entryDate: 'asc' } }, { createdAt: 'asc' }],
+      });
+      let running = 0;
+      const rows = lines.map((l) => {
+        running += Number(l.debit) - Number(l.credit);
+        return {
+          id: l.id,
+          journalEntryId: l.journalEntryId,
+          date: l.entry.entryDate,
+          memo: l.memo ?? l.entry.memo ?? '',
+          source: l.entry.sourceType,
+          debit: l.debit.toString(),
+          credit: l.credit.toString(),
+          balance: running.toFixed(2),
+        };
+      });
+      return {
+        account: { id: account.id, code: account.code, name: account.name, type: account.type, subtype: account.subtype },
+        balance: running.toFixed(2),
+        rows,
+      };
+    });
+  }
+
   create(
     companyId: string,
     data: {

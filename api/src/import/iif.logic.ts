@@ -227,6 +227,33 @@ export function toItems(parsed: ParsedIif): IifItem[] {
   return out;
 }
 
+export interface IifTerm {
+  name: string;
+  dueInDays: number;
+  discountPercent?: string;
+  discountDays?: number;
+}
+
+export function toPaymentTerms(parsed: ParsedIif): IifTerm[] {
+  const section = parsed.sections['TERMS'];
+  if (!section) return [];
+  const out: IifTerm[] = [];
+  for (const row of section.rows) {
+    const name = pick(row, 'NAME');
+    if (!name) continue;
+    const due = parseInt(pick(row, 'DUEDAYS', 'DUE'), 10);
+    const discPct = pick(row, 'DISCPER', 'DISCOUNTPCT');
+    const discDays = parseInt(pick(row, 'DISCDAYS'), 10);
+    out.push({
+      name,
+      dueInDays: Number.isFinite(due) ? due : 30,
+      discountPercent: discPct ? (Number(discPct) / 100).toFixed(6) : undefined,
+      discountDays: Number.isFinite(discDays) ? discDays : undefined,
+    });
+  }
+  return out;
+}
+
 /** Row counts for EVERY section found in the file (incl. ones we don't import),
  *  so the preview can show the user exactly what QuickBooks exported. */
 export function sectionCounts(parsed: ParsedIif): Record<string, number> {

@@ -8,6 +8,7 @@ import {
   toCustomers,
   toEmployees,
   toItems,
+  toPaymentTerms,
   toVendors,
 } from './iif.logic';
 
@@ -17,6 +18,7 @@ interface CommitOptions {
   vendors?: boolean;
   employees?: boolean;
   items?: boolean;
+  paymentTerms?: boolean;
 }
 
 @Injectable()
@@ -34,18 +36,21 @@ export class ImportService {
     const vendors = toVendors(parsed);
     const employees = toEmployees(parsed);
     const items = toItems(parsed);
+    const paymentTerms = toPaymentTerms(parsed);
     return {
       accounts,
       customers,
       vendors,
       employees,
       items,
+      paymentTerms,
       counts: {
         accounts: accounts.length,
         customers: customers.length,
         vendors: vendors.length,
         employees: employees.length,
         items: items.length,
+        paymentTerms: paymentTerms.length,
       },
       // Every QuickBooks list found in the file (incl. ones not yet imported).
       detected: sectionCounts(parsed),
@@ -61,6 +66,7 @@ export class ImportService {
       vendors: { created: 0, skipped: 0 },
       employees: { created: 0, skipped: 0 },
       items: { created: 0, skipped: 0 },
+      paymentTerms: { created: 0, skipped: 0 },
       warnings: [] as string[],
     };
 
@@ -210,6 +216,29 @@ export class ImportService {
           } catch {
             result.items.skipped++;
           }
+        }
+      }
+
+      if (opts.paymentTerms) {
+        const terms = toPaymentTerms(parsed);
+        const existing = await tx.paymentTerm.findMany({ select: { name: true } });
+        const names = new Set(existing.map((t) => t.name.toLowerCase()));
+        for (const t of terms) {
+          if (names.has(t.name.toLowerCase())) {
+            result.paymentTerms.skipped++;
+            continue;
+          }
+          await tx.paymentTerm.create({
+            data: {
+              companyId,
+              name: t.name,
+              dueInDays: t.dueInDays,
+              discountPercent: t.discountPercent ?? null,
+              discountDays: t.discountDays ?? null,
+            },
+          });
+          names.add(t.name.toLowerCase());
+          result.paymentTerms.created++;
         }
       }
 
