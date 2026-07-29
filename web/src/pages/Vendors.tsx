@@ -1,4 +1,5 @@
 import EntityManager from '../components/EntityManager';
+import { formatPhone } from '../lib/format';
 
 export default function Vendors() {
   return (
@@ -12,6 +13,7 @@ export default function Vendors() {
         { key: 'companyName', label: 'Company' },
         { key: 'contactName', label: 'Contact' },
         { key: 'email', label: 'Email' },
+        { key: 'phone', label: 'Phone', render: (r) => formatPhone(r.phone) },
         { key: 'is1099', label: '1099', render: (r) => (r.is1099 ? 'Yes' : '') },
       ],
       fields: [
@@ -19,9 +21,9 @@ export default function Vendors() {
         { key: 'companyName', label: 'Company' },
         { key: 'contactName', label: 'Contact person' },
         { key: 'email', label: 'Email' },
-        { key: 'phone', label: 'Phone' },
-        { key: 'mobile', label: 'Mobile' },
-        { key: 'fax', label: 'Fax' },
+        { key: 'phone', label: 'Phone', type: 'phone' },
+        { key: 'mobile', label: 'Mobile', type: 'phone' },
+        { key: 'fax', label: 'Fax', type: 'phone' },
         { key: 'website', label: 'Website' },
         { key: 'taxId', label: 'Tax ID (encrypted)', writeOnly: true },
         { key: 'is1099', label: 'Track for 1099', type: 'checkbox' },

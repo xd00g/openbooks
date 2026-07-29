@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { applyTheme, DEFAULT_THEME, THEME_FIELDS, type Theme } from '../lib/theme';
 import { Page, Card, Button, Empty, Banner } from '../components/ui';
+import { formatPhone } from '../lib/format';
 
 const FIELDS: { key: string; label: string; type?: string }[] = [
   { key: 'legalName', label: 'Legal name' },
@@ -59,10 +60,11 @@ export default function Company() {
             <label key={f.key} className="text-sm">
               <span className="mb-1 block font-medium text-slate-600">{f.label}</span>
               <input
-                type={f.type ?? 'text'}
+                type={f.key === 'phone' ? 'tel' : f.type ?? 'text'}
                 value={form[f.key] ?? ''}
                 disabled={!editable}
                 onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                onBlur={f.key === 'phone' ? (e) => setForm({ ...form, phone: formatPhone(e.target.value) }) : undefined}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </label>

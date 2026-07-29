@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { money, date } from '../lib/format';
+import { money, date, formatPhone } from '../lib/format';
 
 export interface PreviewLine {
   name?: string;
@@ -49,7 +49,7 @@ export default function DocumentPreview({ kind, number, issueDate, dueDate, part
           <div>
             <div className="text-lg font-semibold text-emerald-900">{c.legalName || 'Your Company'}</div>
             <div className="text-[11px] leading-tight text-slate-500">
-              {[c.email, c.phone, ...addrLines].filter(Boolean).map((l: string, i: number) => <div key={i}>{l}</div>)}
+              {[c.email, formatPhone(c.phone), ...addrLines].filter(Boolean).map((l: string, i: number) => <div key={i}>{l}</div>)}
             </div>
           </div>
         </div>

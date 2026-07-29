@@ -19,6 +19,15 @@ export interface InvoicePdfData {
 }
 
 const d = (v?: string | Date | null) => (v ? new Date(v).toISOString().slice(0, 10) : '');
+
+/** (XXX) XXX-XXXX, preserving a leading country code as "+N " where present. */
+function fmtPhone(v?: string | null): string {
+  if (!v) return '';
+  const digits = v.replace(/\D/g, '');
+  if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  return v;
+}
 const fmtAddr = (a: any): string[] =>
   a ? [a.line1, a.line2, [a.city, a.region, a.postalCode].filter(Boolean).join(', '), a.country].filter(Boolean) : [];
 
@@ -52,7 +61,7 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     }
     doc.fontSize(20).fillColor('#0b3d2e').text(data.company.legalName, cx, 50, { width: 200 });
     doc.fillColor('#555').fontSize(9);
-    [data.company.email, data.company.phone, ...fmtAddr(data.company.address)]
+    [data.company.email, fmtPhone(data.company.phone), ...fmtAddr(data.company.address)]
       .filter(Boolean)
       .forEach((l) => doc.text(String(l), cx));
 
@@ -67,7 +76,7 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     doc.fillColor('#555').fontSize(9).text('BILL TO', 50, 160);
     doc.fillColor('#000').fontSize(11).text(data.customer.companyName || data.customer.displayName, 50, 172);
     doc.fontSize(9).fillColor('#333');
-    [data.customer.companyName ? data.customer.displayName : null, data.customer.email, ...fmtAddr(data.customer.billingAddress)]
+    [data.customer.companyName && data.customer.companyName !== data.customer.displayName ? data.customer.displayName : null, data.customer.email, ...fmtAddr(data.customer.billingAddress)]
       .filter(Boolean)
       .forEach((l) => doc.text(String(l), 50));
 

@@ -109,7 +109,7 @@ export default function Sales() {
   const previewParty = selectedCustomer ? {
     name: selectedCustomer.companyName || selectedCustomer.displayName,
     sub: [
-      selectedCustomer.companyName ? selectedCustomer.displayName : null,
+      selectedCustomer.companyName && selectedCustomer.companyName !== selectedCustomer.displayName ? selectedCustomer.displayName : null,
       selectedCustomer.email,
       selectedCustomer.billingAddress?.line1,
       [selectedCustomer.billingAddress?.city, selectedCustomer.billingAddress?.region, selectedCustomer.billingAddress?.postalCode].filter(Boolean).join(', ') || null,
