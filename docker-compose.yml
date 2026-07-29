@@ -96,6 +96,25 @@ services:
         condition: service_healthy
     command: ["node", "dist/worker.js"]
 
+  # One-off tooling container (Prisma CLI lives in devDeps, which the runtime
+  # image omits). Runs with the PRIVILEGED admin URL so it can create/alter
+  # schema. Not started by `up`; invoke explicitly:
+  #   docker compose run --rm migrate                       # first init (db push)
+  #   docker compose run --rm migrate npx prisma migrate deploy
+  migrate:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: build
+    profiles: ["tools"]
+    env_file: .env
+    environment:
+      DATABASE_URL: ${ADMIN_DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["npx", "prisma", "db", "push"]
+
   web:
     build:
       context: ./web
