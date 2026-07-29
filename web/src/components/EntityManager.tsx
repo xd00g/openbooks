@@ -10,6 +10,7 @@ export interface FieldDef {
   type?: 'text' | 'select' | 'checkbox' | 'date';
   options?: { value: string; label: string }[];
   writeOnly?: boolean; // never populated from the row (e.g. encrypted SSN); only sent if filled
+  fromRow?: (row: any) => string; // custom value when editing (e.g. derive % from a decimal)
   full?: boolean; // span both columns
 }
 
@@ -46,7 +47,7 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
   };
   const openEdit = (row: any) => {
     const f: any = { id: row.id };
-    for (const fd of config.fields) f[fd.key] = fd.writeOnly ? '' : (row[fd.key] ?? (fd.type === 'checkbox' ? false : ''));
+    for (const fd of config.fields) f[fd.key] = fd.writeOnly ? '' : fd.fromRow ? fd.fromRow(row) : (row[fd.key] ?? (fd.type === 'checkbox' ? false : ''));
     if (config.addressKey) { const a = row[config.addressKey] ?? {}; for (const [k] of ADDR) f[`addr_${k}`] = a[k] ?? ''; }
     setForm(f);
   };

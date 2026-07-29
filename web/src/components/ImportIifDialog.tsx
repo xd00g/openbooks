@@ -17,7 +17,7 @@ export default function ImportIifDialog({
   const fileRef = useRef<HTMLInputElement>(null);
   const [content, setContent] = useState('');
   const [preview, setPreview] = useState<any>(null);
-  const [sel, setSel] = useState({ accounts: true, customers: true, vendors: true, employees: true, items: true });
+  const [sel, setSel] = useState({ accounts: true, customers: true, vendors: true, employees: true, items: true, paymentTerms: true });
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,7 +46,7 @@ export default function ImportIifDialog({
         <div className="text-sm">
           <p className="mb-3 font-medium text-emerald-700">Import complete.</p>
           <ul className="space-y-1 text-slate-600">
-            {['accounts', 'customers', 'vendors', 'employees', 'items'].map((k) => (
+            {['accounts', 'customers', 'vendors', 'employees', 'items', 'paymentTerms'].map((k) => (
               <li key={k} className="capitalize">{k}: {result[k].created} created, {result[k].skipped} skipped</li>
             ))}
           </ul>
@@ -84,6 +84,7 @@ export default function ImportIifDialog({
                   { k: 'vendors', label: `Vendors (${preview.counts.vendors})` },
                   { k: 'employees', label: `Employees (${preview.counts.employees})` },
                   { k: 'items', label: `Items / products (${preview.counts.items})` },
+                  { k: 'paymentTerms', label: `Payment terms (${preview.counts.paymentTerms})` },
                 ].map((row) => (
                   <label key={row.k} className="flex items-center gap-2">
                     <input

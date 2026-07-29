@@ -29,6 +29,11 @@ export class AccountsController {
     return this.accounts.list(company(cid));
   }
 
+  @Get(':id/register')
+  register(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.accounts.register(company(cid), id);
+  }
+
   @Post()
   @RequirePermissions('account:manage')
   create(

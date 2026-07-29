@@ -76,6 +76,7 @@ model Company {
   payments      Payment[]
   taxAgencies   TaxAgency[]
   taxRates      TaxRate[]
+  paymentTerms  PaymentTerm[]
   bankAccounts  BankAccount[]
   bankTransactions BankTransaction[]
   reconciliations Reconciliation[]
@@ -353,6 +354,7 @@ model Invoice {
   status       InvoiceStatus @default(draft)
   issueDate    DateTime      @db.Date
   dueDate      DateTime?     @db.Date
+  paymentTermId String?      @db.Uuid
   currency     String        @default("USD") @db.Char(3)
   subtotal     Decimal       @default(0) @db.Decimal(19, 4)
   taxTotal     Decimal       @default(0) @db.Decimal(19, 4)
@@ -366,6 +368,7 @@ model Invoice {
 
   company   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   customer  Customer            @relation(fields: [customerId], references: [id])
+  paymentTerm PaymentTerm?      @relation(fields: [paymentTermId], references: [id])
   lines     InvoiceLine[]
   taxLines  InvoiceTaxLine[]
   applications PaymentApplication[]
@@ -459,6 +462,7 @@ model Bill {
   status       BillStatus @default(draft)
   issueDate    DateTime   @db.Date
   dueDate      DateTime?  @db.Date
+  paymentTermId String?   @db.Uuid
   currency     String     @default("USD") @db.Char(3)
   subtotal     Decimal    @default(0) @db.Decimal(19, 4)
   taxTotal     Decimal    @default(0) @db.Decimal(19, 4)
@@ -472,6 +476,7 @@ model Bill {
 
   company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   vendor       Vendor               @relation(fields: [vendorId], references: [id])
+  paymentTerm  PaymentTerm?         @relation(fields: [paymentTermId], references: [id])
   lines        BillLine[]
   applications PaymentApplication[]
 
@@ -589,6 +594,26 @@ model Item {
   @@unique([companyId, sku])
   @@index([companyId])
   @@map("item")
+}
+
+/// Payment terms (e.g. Net 30) — set an invoice/bill due date and optional
+/// early-payment discount. Reference data, tenant-scoped.
+model PaymentTerm {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @db.Uuid
+  name            String   // "Net 30", "Due on receipt", "2/10 Net 30"
+  dueInDays       Int      @default(30)
+  discountPercent Decimal? @db.Decimal(9, 6) // early-pay discount, e.g. 0.02
+  discountDays    Int?     // discount if paid within N days
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+  bills    Bill[]
+
+  @@index([companyId])
+  @@map("payment_term")
 }
 
 model TaxAgency {

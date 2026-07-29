@@ -32,6 +32,7 @@ interface CreateInvoiceInput {
   customerId: string;
   issueDate: string;
   dueDate?: string;
+  paymentTermId?: string; // if set (and no explicit dueDate), sets dueDate = issue + term.dueInDays
   currency?: string;
   memo?: string;
   lines: DocLineInput[];
@@ -101,6 +102,16 @@ export class SalesService {
       const count = await tx.invoice.count();
       const number = `INV-${String(count + 1).padStart(4, '0')}`;
 
+      // Payment term -> due date (unless an explicit dueDate was given).
+      let dueDate = input.dueDate ? new Date(input.dueDate) : null;
+      if (!dueDate && input.paymentTermId) {
+        const term = await tx.paymentTerm.findFirst({ where: { id: input.paymentTermId } });
+        if (term) {
+          dueDate = new Date(input.issueDate);
+          dueDate.setDate(dueDate.getDate() + term.dueInDays);
+        }
+      }
+
       return tx.invoice.create({
         data: {
           companyId,
@@ -108,7 +119,8 @@ export class SalesService {
           number,
           status: 'draft',
           issueDate: new Date(input.issueDate),
-          dueDate: input.dueDate ? new Date(input.dueDate) : null,
+          dueDate,
+          paymentTermId: input.paymentTermId ?? null,
           currency: input.currency ?? 'USD',
           subtotal: totals.subtotal,
           taxTotal: totals.taxTotal,
