@@ -14,12 +14,24 @@ export interface InvoicePdfData {
     total: string;
     memo?: string | null;
   };
-  lines: { description?: string | null; quantity: string; unitPrice: string; amount: string }[];
+  /** name = the product/service title (bold); description = subtitle underneath. */
+  lines: { name?: string | null; description?: string | null; quantity: string; unitPrice: string; amount: string }[];
 }
 
 const d = (v?: string | Date | null) => (v ? new Date(v).toISOString().slice(0, 10) : '');
 const fmtAddr = (a: any): string[] =>
   a ? [a.line1, a.line2, [a.city, a.region, a.postalCode].filter(Boolean).join(', '), a.country].filter(Boolean) : [];
+
+/** $1,000,000.00-style formatting (falls back to a plain "CUR 0.00" prefix if
+ *  Intl doesn't recognize the currency code, e.g. a placeholder currency). */
+function fmtMoney(v: string | number, currency: string): string {
+  const n = Number(v);
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);
+  } catch {
+    return `${currency} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+}
 
 /** Render an invoice to a PDF buffer with pdfkit (bundled Helvetica; no system deps). */
 export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
@@ -30,7 +42,7 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const money = (v: string) => `${data.invoice.currency} ${Number(v).toFixed(2)}`;
+    const money = (v: string) => fmtMoney(v, data.invoice.currency);
     const right = 560;
 
     // ---- Header: logo + company (left) + INVOICE (right) ----
@@ -69,13 +81,22 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     y += 14;
     doc.moveTo(50, y).lineTo(right, y).strokeColor('#ddd').stroke();
     y += 8;
-    doc.fillColor('#000').fontSize(9);
     for (const l of data.lines) {
-      doc.text(l.description || '—', 50, y, { width: 270 });
+      const title = l.name?.trim() || l.description?.trim() || '—';
+      const subtitle = l.name?.trim() && l.description?.trim() && l.description.trim() !== title ? l.description.trim() : null;
+
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#000').text(title, 50, y, { width: 270 });
+      doc.font('Helvetica').fontSize(9).fillColor('#000');
       doc.text(String(Number(l.quantity)), 330, y, { width: 50, align: 'right' });
-      doc.text(Number(l.unitPrice).toFixed(2), 390, y, { width: 70, align: 'right' });
-      doc.text(Number(l.amount).toFixed(2), 470, y, { width: 90, align: 'right' });
-      y = doc.y + 6;
+      doc.text(fmtMoney(l.unitPrice, data.invoice.currency), 390, y, { width: 70, align: 'right' });
+      doc.text(fmtMoney(l.amount, data.invoice.currency), 470, y, { width: 90, align: 'right' });
+
+      let rowBottom = doc.y;
+      if (subtitle) {
+        doc.font('Helvetica').fontSize(8).fillColor('#777').text(subtitle, 50, doc.y, { width: 270 });
+        rowBottom = Math.max(rowBottom, doc.y);
+      }
+      y = rowBottom + 6;
     }
 
     // ---- Totals ----

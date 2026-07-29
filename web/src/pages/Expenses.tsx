@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { money, today } from '../lib/format';
+import { money, today, parseAmount, cleanAmount } from '../lib/format';
 import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
 import Attachments from '../components/Attachments';
 
@@ -33,13 +33,13 @@ export default function Expenses() {
   const rmBline = (i: number) => setBlines((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
   const pickProduct = (i: number, itemId: string) => {
     const it = (products.data ?? []).find((p: any) => p.id === itemId);
-    setBlines((ls) => ls.map((l, j) => (j === i ? { ...l, itemId, accountId: it?.expenseAccountId || l.accountId, description: it ? (it.description || it.name) : l.description, unitPrice: it?.unitPrice != null ? String(it.unitPrice) : l.unitPrice } : l)));
+    setBlines((ls) => ls.map((l, j) => (j === i ? { ...l, itemId, accountId: it?.expenseAccountId || l.accountId, description: it?.description ?? l.description, unitPrice: it?.unitPrice != null ? String(it.unitPrice) : l.unitPrice } : l)));
   };
-  const billTotal = blines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0);
+  const billTotal = blines.reduce((s, l) => s + parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'), 0);
   const createBill = useMutation({
     mutationFn: () => api.post('/expenses/bills', {
       vendorId: bill.vendorId, number: bill.number || undefined, issueDate: bill.issueDate, dueDate: bill.dueDate || undefined,
-      lines: blines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: l.quantity || '1', unitPrice: l.unitPrice })),
+      lines: blines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: cleanAmount(l.quantity) || '1', unitPrice: cleanAmount(l.unitPrice) })),
     }),
     onSuccess: () => { setBill(billHead); setBlines([{ ...emptyLine }]); refresh(); },
     onError: (e: any) => setErr(e.message),
@@ -78,7 +78,14 @@ export default function Expenses() {
             </label>
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
+            <div className="sm:col-span-3">Product / service</div>
+            <div className="sm:col-span-3">Expense account</div>
+            <div className="sm:col-span-4">Description</div>
+            <div className="sm:col-span-1 text-right">Qty</div>
+            <div className="sm:col-span-1 text-right">Price</div>
+          </div>
+          <div className="mt-1 space-y-2">
             {blines.map((l, i) => (
               <div key={i} className="rounded-md border border-slate-200 p-2">
                 <div className="grid grid-cols-12 gap-1.5 text-sm">
@@ -91,21 +98,23 @@ export default function Expenses() {
                     {expenseAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
                   </select>
                   <input value={l.description} onChange={(e) => setBline(i, 'description', e.target.value)} placeholder="Description" className="col-span-8 rounded-md border border-slate-300 px-2 py-1 sm:col-span-4" />
-                  <input value={l.quantity} onChange={(e) => setBline(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
-                  <input value={l.unitPrice} onChange={(e) => setBline(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" />
+                  <input value={l.quantity} onChange={(e) => setBline(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
+                  <input value={l.unitPrice} onChange={(e) => setBline(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-                  <span>Line: {money(Number(l.quantity || 0) * Number(l.unitPrice || 0))}</span>
+                  <span className="font-medium text-slate-700">{money(parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'))}</span>
                   {blines.length > 1 && <button onClick={() => rmBline(i)} className="text-red-500 hover:underline">Remove</button>}
                 </div>
               </div>
             ))}
-            <button onClick={addBline} className="text-xs text-emerald-700 hover:underline">+ Add line item</button>
+            <button onClick={addBline} className="text-xs font-medium text-emerald-700 hover:underline">+ Add line item</button>
           </div>
 
-          <div className="mt-3 flex items-end justify-between">
-            <div className="text-xs font-semibold text-slate-800">Total: {money(billTotal)}</div>
+          <div className="mt-4 flex flex-col items-end gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
             <Button onClick={() => createBill.mutate()} disabled={!bill.vendorId || !blines.some((l) => l.accountId && l.unitPrice)}>Create draft</Button>
+            <div className="w-full max-w-[220px] rounded-lg bg-slate-50 p-3 text-sm">
+              <div className="flex justify-between border-t border-slate-200 pt-1 text-base font-semibold text-slate-800"><span>Total</span><span>{money(billTotal)}</span></div>
+            </div>
           </div>
         </Card>
       </div>
@@ -115,8 +124,8 @@ export default function Expenses() {
           <tr key={b.id}>
             <td className="px-4 py-2 font-medium">{b.number || '—'}</td>
             <td className="px-4 py-2 capitalize text-slate-500">{b.status.replace(/_/g, ' ')}</td>
-            <td className="px-4 py-2 text-right">{money(b.total)}</td>
-            <td className="px-4 py-2 text-right">{money(b.balanceDue)}</td>
+            <td className="px-4 py-2 text-right">{money(b.total, b.currency)}</td>
+            <td className="px-4 py-2 text-right">{money(b.balanceDue, b.currency)}</td>
             <td className="px-4 py-2 text-right">
               <span className="inline-flex gap-2">
                 <Button variant="ghost" onClick={() => setFilesFor(b.id)}>Files</Button>
