@@ -70,8 +70,12 @@ export default function Expenses() {
               {(vendors.data ?? []).map((v: any) => <option key={v.id} value={v.id}>{v.displayName}</option>)}
             </select>
             <input value={bill.number} onChange={(e) => setBill({ ...bill, number: e.target.value })} placeholder="Vendor ref # (optional)" className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" />
-            <input type="date" value={bill.issueDate} onChange={(e) => setBill({ ...bill, issueDate: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" />
-            <input type="date" value={bill.dueDate} onChange={(e) => setBill({ ...bill, dueDate: e.target.value })} placeholder="Due" className="rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-slate-500">Bill date
+              <input type="date" value={bill.issueDate} onChange={(e) => setBill({ ...bill, issueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <label className="text-xs text-slate-500">Due date (optional)
+              <input type="date" value={bill.dueDate} onChange={(e) => setBill({ ...bill, dueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
           </div>
 
           <div className="mt-3 space-y-2">

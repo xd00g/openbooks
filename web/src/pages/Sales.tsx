@@ -89,8 +89,12 @@ export default function Sales() {
               <option value="">Payment term (sets due date)…</option>
               {(terms.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} — net {t.dueInDays}d</option>)}
             </select>
-            <input type="date" value={inv.issueDate} onChange={(e) => setInv({ ...inv, issueDate: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" />
-            <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} placeholder="Due (override)" className="rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-slate-500">Invoice date
+              <input type="date" value={inv.issueDate} onChange={(e) => setInv({ ...inv, issueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
+            <label className="text-xs text-slate-500">Due date {inv.paymentTermId ? '(auto from term)' : '(optional)'}
+              <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            </label>
           </div>
 
           <div className="mt-3 space-y-2">
