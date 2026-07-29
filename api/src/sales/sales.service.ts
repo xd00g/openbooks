@@ -99,8 +99,14 @@ export class SalesService {
         throw e;
       }
 
-      const count = await tx.invoice.count();
-      const number = `INV-${String(count + 1).padStart(4, '0')}`;
+      // Number off the highest existing invoice, not the count — count+1 collides
+      // after any invoice is deleted/voided.
+      const last = await tx.invoice.findFirst({
+        orderBy: { number: 'desc' },
+        select: { number: true },
+      });
+      const lastNum = last ? parseInt(last.number.replace(/\D/g, ''), 10) || 0 : 0;
+      const number = `INV-${String(lastNum + 1).padStart(4, '0')}`;
 
       // Payment term -> due date (unless an explicit dueDate was given).
       let dueDate = input.dueDate ? new Date(input.dueDate) : null;
