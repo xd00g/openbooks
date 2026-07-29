@@ -85,6 +85,14 @@ export class Money {
     return this.mulRate(factor);
   }
 
+  /** Divide by a positive integer (e.g. salary / pay periods), rounding half-up. */
+  divInt(divisor: number): Money {
+    if (!Number.isInteger(divisor) || divisor === 0) {
+      throw new Error('divInt requires a nonzero integer divisor');
+    }
+    return new Money(divRoundHalfUp(this.micros, BigInt(divisor)));
+  }
+
   isZero(): boolean {
     return this.micros === 0n;
   }

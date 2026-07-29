@@ -2,13 +2,15 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
-import { ExpensesService } from './expenses.service';
+import { ExpensesService, VendorInput } from './expenses.service';
 import { DocLineInput } from '../documents/document.logic';
 
 function company(id?: string): string {
@@ -25,9 +27,18 @@ export class ExpensesController {
   @Post('vendors')
   createVendor(
     @Headers('x-company-id') cid: string,
-    @Body() body: { displayName: string; email?: string; is1099?: boolean },
+    @Body() body: VendorInput,
   ) {
     return this.expenses.createVendor(company(cid), body);
+  }
+
+  @Patch('vendors/:id')
+  updateVendor(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: Partial<VendorInput>,
+  ) {
+    return this.expenses.updateVendor(company(cid), id, body);
   }
 
   @Get('vendors')
@@ -55,6 +66,16 @@ export class ExpensesController {
   @Post('bills/:id/finalize')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.expenses.finalizeBill(company(cid), id);
+  }
+
+  @Post('bills/:id/void')
+  voidBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.expenses.voidBill(company(cid), id);
+  }
+
+  @Delete('bills/:id')
+  deleteBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.expenses.deleteBill(company(cid), id);
   }
 
   @Get('bills')

@@ -2,13 +2,15 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
-import { SalesService } from './sales.service';
+import { SalesService, CustomerInput } from './sales.service';
 import { DocLineInput } from '../documents/document.logic';
 
 function company(id?: string): string {
@@ -25,9 +27,18 @@ export class SalesController {
   @Post('customers')
   createCustomer(
     @Headers('x-company-id') cid: string,
-    @Body() body: { displayName: string; email?: string },
+    @Body() body: CustomerInput,
   ) {
     return this.sales.createCustomer(company(cid), body);
+  }
+
+  @Patch('customers/:id')
+  updateCustomer(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: Partial<CustomerInput>,
+  ) {
+    return this.sales.updateCustomer(company(cid), id, body);
   }
 
   @Get('customers')
@@ -54,6 +65,16 @@ export class SalesController {
   @Post('invoices/:id/finalize')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.finalizeInvoice(company(cid), id);
+  }
+
+  @Post('invoices/:id/void')
+  voidInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.sales.voidInvoice(company(cid), id);
+  }
+
+  @Delete('invoices/:id')
+  deleteInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.sales.deleteInvoice(company(cid), id);
   }
 
   @Get('invoices/:id')

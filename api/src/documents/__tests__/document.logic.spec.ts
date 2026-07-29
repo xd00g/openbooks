@@ -20,6 +20,26 @@ describe('computeDocumentTotals', () => {
     expect(totals.taxLines).toHaveLength(1);
   });
 
+  it('supports negative lines for corrections / credit memos', () => {
+    const totals = computeDocumentTotals(
+      [
+        { accountId: 'inc', quantity: '1', unitPrice: '100.00' },
+        { accountId: 'inc', quantity: '1', unitPrice: '-30.00' }, // correction
+      ],
+      new Map(),
+    );
+    expect(totals.subtotal).toBe('70.0000');
+    expect(totals.total).toBe('70.0000');
+  });
+
+  it('allows a fully negative document (credit memo)', () => {
+    const totals = computeDocumentTotals(
+      [{ accountId: 'inc', quantity: '1', unitPrice: '-50.00' }],
+      new Map(),
+    );
+    expect(totals.total).toBe('-50.0000');
+  });
+
   it('throws on an unknown tax rate', () => {
     expect(() =>
       computeDocumentTotals([
