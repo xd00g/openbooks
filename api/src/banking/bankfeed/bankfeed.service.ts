@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NormalizedTxn } from './provider.interface';
@@ -31,6 +35,85 @@ export class BankFeedService {
 
   async importOfx(companyId: string, bankAccountId: string, content: string) {
     return this.importNormalized(companyId, bankAccountId, parseOfx(content));
+  }
+
+  /**
+   * Step 1 of SimpleFIN linking: exchange the one-time setup token for a durable
+   * access URL, remember it on the company, and return the accounts it can see
+   * so the user can map each to a GL account.
+   *
+   * SECURITY: the access URL is a long-lived credential. It is currently stored
+   * as-is (matching how bank_account.accessToken is stored today); wiring real
+   * app-layer encryption for these fields is tracked as a follow-up.
+   */
+  async claimSimpleFin(companyId: string, setupToken: string) {
+    if (!setupToken?.trim()) {
+      throw new BadRequestException('SimpleFIN setup token is required.');
+    }
+    const accessUrl = await SimpleFinProvider.claimAccessUrl(setupToken.trim());
+    const accounts = await new SimpleFinProvider().fetchAccounts(accessUrl);
+
+    await this.prisma.forCompany(companyId, async (tx) => {
+      const c = await tx.company.findUnique({
+        where: { id: companyId },
+        select: { settings: true },
+      });
+      const settings = {
+        ...((c?.settings as Record<string, unknown>) ?? {}),
+        simplefinAccessUrl: accessUrl,
+      };
+      await tx.company.update({
+        where: { id: companyId },
+        data: { settings: settings as never },
+      });
+    });
+
+    return { accounts };
+  }
+
+  /**
+   * Step 2 of SimpleFIN linking: create a bank account bound to a GL account,
+   * carrying the previously-claimed access URL so syncs can run.
+   */
+  async linkSimpleFin(
+    companyId: string,
+    data: {
+      externalAccountId: string;
+      accountId: string;
+      institution?: string;
+      mask?: string;
+    },
+  ) {
+    if (!data?.accountId) {
+      throw new BadRequestException('Choose a GL account to link.');
+    }
+    if (!data?.externalAccountId) {
+      throw new BadRequestException('Missing SimpleFIN account id.');
+    }
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const c = await tx.company.findUnique({
+        where: { id: companyId },
+        select: { settings: true },
+      });
+      const accessUrl = (c?.settings as Record<string, unknown> | null)
+        ?.simplefinAccessUrl as string | undefined;
+      if (!accessUrl) {
+        throw new BadRequestException(
+          'Connect a SimpleFIN setup token before linking accounts.',
+        );
+      }
+      return tx.bankAccount.create({
+        data: {
+          companyId,
+          accountId: data.accountId,
+          provider: 'simplefin' as never,
+          externalId: data.externalAccountId,
+          accessToken: accessUrl,
+          institution: data.institution,
+          mask: data.mask,
+        },
+      });
+    });
   }
 
   /** Pull from SimpleFIN using the account's stored access URL. */

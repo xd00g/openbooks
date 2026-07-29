@@ -1,11 +1,15 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import {
   LayoutDashboard, Landmark, ReceiptText, CreditCard, BookOpen,
-  Users, BarChart3, Building2, ShieldCheck, ChevronDown, LogOut,
+  Users, BarChart3, Building2, ShieldCheck, ChevronDown, LogOut, Plus,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from './lib/api';
+import { applyTheme } from './lib/theme';
 import { useAuth } from './lib/auth';
 import Login from './components/Login';
+import CreateCompanyDialog from './components/CreateCompanyDialog';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Accounting from './pages/Accounting';
@@ -30,33 +34,84 @@ const NAV: { to: string; label: string; icon: ReactNode }[] = [
 
 function CompanySwitcher() {
   const { me, companyId, setCompany } = useAuth();
+  const [creating, setCreating] = useState(false);
   const memberships = me?.memberships ?? [];
-  if (memberships.length === 0) {
-    return <div className="mx-3 mb-3 rounded-md bg-slate-800 px-3 py-2 text-xs text-slate-400">No company</div>;
-  }
   return (
-    <div className="mx-3 mb-3 flex items-center rounded-md bg-slate-800 px-2">
-      <select
-        value={companyId ?? ''}
-        onChange={(e) => setCompany(e.target.value)}
-        className="w-full bg-transparent py-2 text-sm text-slate-100 focus:outline-none"
+    <div className="mx-3 mb-3">
+      <div className="flex items-center rounded-md bg-slate-800 px-2">
+        <select
+          value={companyId ?? ''}
+          onChange={(e) => setCompany(e.target.value)}
+          className="w-full bg-transparent py-2 text-sm text-slate-100 focus:outline-none"
+        >
+          {memberships.map((m) => (
+            <option key={m.companyId} value={m.companyId} className="text-slate-900">
+              {m.company}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={16} className="text-slate-400" />
+      </div>
+      <button
+        onClick={() => setCreating(true)}
+        className="mt-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100"
       >
-        {memberships.map((m) => (
-          <option key={m.companyId} value={m.companyId} className="text-slate-900">
-            {m.company}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={16} className="text-slate-400" />
+        <Plus size={14} /> New company
+      </button>
+      {creating && <CreateCompanyDialog onClose={() => setCreating(false)} />}
     </div>
   );
 }
 
-function Sidebar() {
+function FirstRun() {
   const { me, logout } = useAuth();
   return (
-    <aside className="flex w-64 shrink-0 flex-col bg-slate-900 text-slate-100">
-      <div className="px-4 py-4 text-lg font-semibold tracking-tight">OpenBooks</div>
+    <div className="flex h-full flex-col items-center justify-center bg-slate-50 px-4 text-center">
+      <Building2 className="mb-4 text-slate-400" size={40} />
+      <h1 className="text-2xl font-semibold text-slate-800">Welcome to OpenBooks</h1>
+      <p className="mt-2 max-w-md text-sm text-slate-500">
+        You're signed in as {me?.user.email}, but you don't have a company yet.
+        Create one to start keeping its books.
+      </p>
+      {/* Dialog is rendered inline and always open in first-run mode. */}
+      <CreateCompanyDialog firstRun onClose={() => { /* stays open until a company exists */ }} />
+      <button onClick={logout} className="mt-6 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700">
+        <LogOut size={14} /> Sign out
+      </button>
+    </div>
+  );
+}
+
+function useBranding() {
+  const { companyId } = useAuth();
+  const company = useQuery({
+    queryKey: ['company', companyId],
+    enabled: !!companyId,
+    queryFn: () => api.get('/company'),
+  });
+  const logo = useQuery({
+    queryKey: ['company-logo', companyId],
+    enabled: !!companyId,
+    queryFn: () => api.get('/company/logo-url'),
+  });
+  useEffect(() => {
+    applyTheme(company.data?.theme);
+  }, [company.data]);
+  return { logoUrl: (logo.data?.url as string) ?? null };
+}
+
+function Sidebar() {
+  const { me, logout } = useAuth();
+  const { logoUrl } = useBranding();
+  return (
+    <aside
+      className="flex w-64 shrink-0 flex-col text-[color:var(--ob-sidebar-text,#e2e8f0)]"
+      style={{ backgroundColor: 'var(--ob-sidebar-bg, #0f172a)' }}
+    >
+      <div className="flex items-center gap-2 px-4 py-4">
+        {logoUrl && <img src={logoUrl} alt="Logo" className="h-8 w-8 rounded object-contain" />}
+        <span className="text-lg font-semibold tracking-tight">OpenBooks</span>
+      </div>
       <CompanySwitcher />
       <nav className="flex-1 space-y-1 px-2">
         {NAV.map((item) => (
@@ -92,6 +147,7 @@ export default function App() {
     return <div className="flex h-full items-center justify-center text-slate-400">Loading…</div>;
   }
   if (!me) return <Login />;
+  if ((me.memberships ?? []).length === 0) return <FirstRun />;
 
   return (
     <div className="flex h-full">

@@ -93,4 +93,91 @@ export class OnboardingService {
       ...session,
     };
   }
+
+  /**
+   * Create an additional company for an already-authenticated user. If the user
+   * already belongs to an organization we create the company under it (reusing
+   * or creating an "Owner" role); otherwise — e.g. a first-time SSO user with no
+   * memberships — we bootstrap a fresh organization for them. Runs on the
+   * RLS-bypassing admin connection for the same reason as createOrganization:
+   * a brand-new company can't satisfy the company table's RLS INSERT check.
+   */
+  async createCompanyForUser(
+    userId: string,
+    input: {
+      legalName: string;
+      baseCurrency?: string;
+      country?: string;
+      organizationName?: string;
+    },
+  ) {
+    const legalName = input?.legalName?.trim();
+    if (!legalName) {
+      throw new BadRequestException('Company legal name is required.');
+    }
+
+    const result = await this.admin.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new BadRequestException('User not found.');
+
+      const existing = await tx.membership.findFirst({
+        where: { userId },
+        select: { organizationId: true },
+      });
+
+      let organizationId = existing?.organizationId;
+      if (!organizationId) {
+        const org = await tx.organization.create({
+          data: { name: input.organizationName?.trim() || legalName },
+        });
+        organizationId = org.id;
+      }
+
+      // Reuse an Owner role in the org, or create one.
+      const ownerRole =
+        (await tx.role.findFirst({
+          where: { organizationId, name: 'Owner' },
+        })) ??
+        (await tx.role.create({
+          data: {
+            organizationId,
+            name: 'Owner',
+            isSystem: true,
+            permissions: ['*'],
+          },
+        }));
+
+      const company = await tx.company.create({
+        data: {
+          organizationId,
+          legalName,
+          baseCurrency: input.baseCurrency?.trim() || 'USD',
+          country: input.country?.trim() || 'US',
+        },
+      });
+
+      await tx.membership.create({
+        data: {
+          userId,
+          companyId: company.id,
+          organizationId,
+          roleId: ownerRole.id,
+        },
+      });
+
+      return { company };
+    });
+
+    // Seed the chart of accounts through the normal RLS path.
+    await this.coaSeeder.seed(result.company.id);
+
+    this.log.log(
+      `User ${userId} created company ${result.company.id} (${result.company.legalName})`,
+    );
+
+    return {
+      companyId: result.company.id,
+      legalName: result.company.legalName,
+    };
+  }
 }

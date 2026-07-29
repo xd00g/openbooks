@@ -10,3 +10,20 @@ html, body, #root {
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
+
+/* Print / "Save as PDF": drop the app chrome and interactive controls so only
+   the report content lands on the page. Elements can opt out with .no-print. */
+@media print {
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  html, body, #root {
+    height: auto !important;
+  }
+}

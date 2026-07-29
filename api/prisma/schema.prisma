@@ -55,7 +55,8 @@ model Company {
   region         String?  // state/province
   postalCode     String?
   country        String   @default("US")
-  logoStorageKey String?  // object-storage key for invoice branding
+  logoStorageKey String?  // object-storage key for invoice + app branding
+  theme          Json     @default("{}") // brand palette (accent, sidebar, etc.)
   baseCurrency   String   @default("USD") @db.Char(3)
   fiscalYearStartMonth Int @default(1) // 1 = January
   settings       Json     @default("{}") // numbering, feature toggles, etc.
@@ -105,6 +106,18 @@ model User {
   uploads        Attachment[]
 
   @@map("app_user")
+}
+
+/// Deployment-level system configuration (SSO / SMTP / etc.), keyed by name.
+/// Cross-tenant like organization/user/role: NOT under company RLS. Read on the
+/// pre-company login path, so it must resolve without a company context.
+/// Secret values are never returned to clients (see SystemSettingsService).
+model SystemSetting {
+  key       String   @id // 'oidc' | 'saml' | 'smtp'
+  value     Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@map("system_setting")
 }
 
 /// A role is a named bundle of permissions. Org-defined or system template.

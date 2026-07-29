@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { OnboardingService } from './onboarding.service';
-import { Public } from './decorators';
+import { CurrentUser, Public } from './decorators';
 
 /**
  * Onboarding / sign-up. Marked @Public so a new org can be created before any
@@ -24,5 +24,24 @@ export class OnboardingController {
     },
   ) {
     return this.onboarding.createOrganization(body);
+  }
+
+  /**
+   * Create an additional company for the authenticated user (or bootstrap their
+   * first org+company if they have none — e.g. a fresh SSO sign-in). Requires a
+   * session; the caller becomes Owner of the new company.
+   */
+  @Post('company')
+  createCompany(
+    @CurrentUser() user: { id: string },
+    @Body()
+    body: {
+      legalName: string;
+      baseCurrency?: string;
+      country?: string;
+      organizationName?: string;
+    },
+  ) {
+    return this.onboarding.createCompanyForUser(user.id, body);
   }
 }

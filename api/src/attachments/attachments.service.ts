@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   GetObjectCommand,
@@ -98,6 +102,20 @@ export class AttachmentsService {
         orderBy: { createdAt: 'desc' },
       }),
     );
+  }
+
+  /** Presign a GET for a raw storage key (e.g. a company logo) after verifying
+   *  the key is namespaced to this company. */
+  async presignGet(companyId: string, storageKey: string) {
+    if (!storageKey || !storageKey.startsWith(`${companyId}/`)) {
+      throw new BadRequestException('Storage key does not belong to this company.');
+    }
+    const url = await getSignedUrl(
+      this.s3,
+      new GetObjectCommand({ Bucket: this.bucket, Key: storageKey }),
+      { expiresIn: this.urlTtl },
+    );
+    return { url, expiresIn: this.urlTtl };
   }
 
   async downloadUrl(companyId: string, attachmentId: string) {

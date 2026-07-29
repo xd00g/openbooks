@@ -11,4 +11,8 @@ SQL_DIR="$(dirname "$0")/../api/prisma/sql"
 
 echo "Applying accounting_core_constraints.sql ..."
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/accounting_core_constraints.sql"
+
+# Idempotent follow-up migrations (safe to re-run).
+echo "Applying 0002_system_settings_and_theme.sql ..."
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/0002_system_settings_and_theme.sql"
 echo "Done."
