@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { money, today, parseAmount, cleanAmount } from '../lib/format';
 import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
 import Attachments from '../components/Attachments';
+import DocumentPreview from '../components/DocumentPreview';
 
 export default function Expenses() {
   const { companyId } = useAuth();
@@ -58,11 +59,29 @@ export default function Expenses() {
 
   if (!companyId) return <Page title="Expenses"><Empty>Select a company.</Empty></Page>;
 
+  const selectedVendor = (vendors.data ?? []).find((v: any) => v.id === bill.vendorId);
+  const previewParty = selectedVendor ? {
+    name: selectedVendor.companyName || selectedVendor.displayName,
+    sub: [
+      selectedVendor.companyName ? selectedVendor.displayName : null,
+      selectedVendor.email,
+      selectedVendor.address?.line1,
+      [selectedVendor.address?.city, selectedVendor.address?.region, selectedVendor.address?.postalCode].filter(Boolean).join(', ') || null,
+    ].filter(Boolean),
+  } : null;
+  const previewLines = blines.map((l) => ({
+    name: (products.data ?? []).find((p: any) => p.id === l.itemId)?.name,
+    description: l.description,
+    quantity: l.quantity,
+    unitPrice: l.unitPrice,
+    amount: parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'),
+  }));
+
   return (
     <Page title="Expenses">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
         <Card title="New bill">
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
             <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2">
@@ -117,6 +136,16 @@ export default function Expenses() {
             </div>
           </div>
         </Card>
+
+        <DocumentPreview
+          kind="BILL"
+          issueDate={bill.issueDate}
+          dueDate={bill.dueDate || undefined}
+          party={previewParty}
+          lines={previewLines}
+          subtotal={billTotal}
+          taxTotal={0}
+        />
       </div>
 
       <Table head={['Vendor ref', 'Status', 'Total', 'Balance', '']}>
