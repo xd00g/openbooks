@@ -86,9 +86,9 @@ export class SalesController {
   send(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
-    @Body() body: { to?: string },
+    @Body() body: { to?: string; cc?: string },
   ) {
-    return this.sales.sendInvoice(company(cid), id, body?.to);
+    return this.sales.sendInvoice(company(cid), id, body?.to, body?.cc);
   }
 
   @Delete('invoices/:id')

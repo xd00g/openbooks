@@ -58,7 +58,11 @@ export default function Sales() {
     onError: (e: any) => setErr(e.message),
   });
   const downloadPdf = (i: any) => api.blobUrl(`/sales/invoices/${i.id}/pdf`).then((u) => window.open(u, '_blank')).catch((e) => setErr(e.message));
-  const sendInvoice = (i: any) => wrap(api.post(`/sales/invoices/${i.id}/send`, {}).then((r: any) => setErr(`✓ Sent to ${r.to}`)));
+  const sendInvoice = (i: any) => {
+    const cc = prompt('Email this invoice to the customer.\nOptional CC (comma-separated), or leave blank:');
+    if (cc === null) return; // cancelled
+    wrap(api.post(`/sales/invoices/${i.id}/send`, cc.trim() ? { cc: cc.trim() } : {}).then((r: any) => setErr(`✓ Sent to ${r.to}${r.cc ? ` (cc ${r.cc})` : ''}`)));
+  };
 
   const finalize = (id: string) => wrap(api.post(`/sales/invoices/${id}/finalize`));
   const voidInvoice = (id: string) => { if (confirm('Void this invoice? A reversing entry will be posted.')) wrap(api.post(`/sales/invoices/${id}/void`)); };

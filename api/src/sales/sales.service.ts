@@ -116,7 +116,7 @@ export class SalesService {
     });
   }
 
-  async sendInvoice(companyId: string, id: string, toOverride?: string): Promise<{ sent: boolean; to: string }> {
+  async sendInvoice(companyId: string, id: string, toOverride?: string, cc?: string): Promise<{ sent: boolean; to: string; cc?: string }> {
     return this.prisma.forCompany(companyId, async (tx) => {
       const { buffer, invoice } = await this.gatherPdf(tx as unknown as PrismaClient, companyId, id);
       const to = toOverride?.trim() || invoice.customer.email;
@@ -126,8 +126,9 @@ export class SalesService {
         `Invoice ${invoice.number}`,
         `Hello,\n\nPlease find attached invoice ${invoice.number} for ${invoice.total.toString()} ${invoice.currency}.\n\nThank you.`,
         [{ filename: `${invoice.number}.pdf`, content: buffer, contentType: 'application/pdf' }],
+        cc?.trim() || undefined,
       );
-      return { sent: true, to };
+      return { sent: true, to, cc: cc?.trim() || undefined };
     });
   }
 

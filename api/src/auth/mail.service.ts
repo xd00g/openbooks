@@ -21,15 +21,24 @@ export class MailService {
   private transport() {
     const c = this.settings.smtp();
     if (!c.host) throw new BadRequestException('SMTP host is not configured.');
+    // TLS mode follows the port: 465 = implicit TLS (secure), everything else
+    // (587, 2525, 25) = STARTTLS. This prevents the very common "587 + secure"
+    // misconfiguration that hangs the connection. Short timeouts so failures
+    // surface immediately instead of blocking the request.
+    const secure = c.port === 465;
     return createTransport({
       host: c.host,
       port: c.port,
-      secure: c.secure,
+      secure,
+      requireTLS: !secure,
       auth: c.username ? { user: c.username, pass: c.password } : undefined,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
 
-  async send(to: string, subject: string, text: string) {
+  async send(to: string, subject: string, text: string, cc?: string) {
     const c = this.settings.smtp();
     if (!c.fromEmail) {
       throw new BadRequestException('SMTP "from" address is not configured.');
@@ -37,6 +46,7 @@ export class MailService {
     const info = await this.transport().sendMail({
       from: c.fromName ? `${c.fromName} <${c.fromEmail}>` : c.fromEmail,
       to,
+      cc: cc || undefined,
       subject,
       text,
     });
@@ -49,6 +59,7 @@ export class MailService {
     subject: string,
     text: string,
     attachments: { filename: string; content: Buffer; contentType?: string }[],
+    cc?: string,
   ) {
     const c = this.settings.smtp();
     if (!c.fromEmail) {
@@ -57,6 +68,7 @@ export class MailService {
     const info = await this.transport().sendMail({
       from: c.fromName ? `${c.fromName} <${c.fromEmail}>` : c.fromEmail,
       to,
+      cc: cc || undefined,
       subject,
       text,
       attachments,
