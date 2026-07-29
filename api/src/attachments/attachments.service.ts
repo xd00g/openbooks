@@ -32,7 +32,11 @@ export class AttachmentsService {
   constructor(private readonly prisma: PrismaService) {
     this.s3 = new S3Client({
       region: process.env.S3_REGION ?? 'us-east-1',
-      endpoint: process.env.S3_ENDPOINT,
+      // Presigned URLs are handed to the BROWSER, so they must be signed for a
+      // publicly reachable host (the SigV4 signature binds the Host header).
+      // S3_PUBLIC_ENDPOINT is the browser-facing origin (e.g. a tunnel/proxy in
+      // front of MinIO); it falls back to the internal endpoint for local dev.
+      endpoint: process.env.S3_PUBLIC_ENDPOINT ?? process.env.S3_ENDPOINT,
       forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true',
       credentials: {
         accessKeyId: process.env.S3_ACCESS_KEY ?? '',
