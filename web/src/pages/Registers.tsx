@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, date, today } from '../lib/format';
-import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
 import Attachments from '../components/Attachments';
 
 const MONEY_SUBTYPES = ['bank', 'credit_card', 'undeposited_funds'];
@@ -80,7 +80,7 @@ export default function Registers() {
 
   return (
     <Page title="Account Registers">
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
       <Card>
         <div className="flex flex-wrap items-center gap-3">
           <select value={acctId} onChange={(e) => setAcctId(e.target.value)} className="w-80 rounded-md border border-slate-300 px-2 py-1.5 text-sm">

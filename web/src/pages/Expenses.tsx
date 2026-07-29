@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, today, parseAmount, cleanAmount } from '../lib/format';
-import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
 import Attachments from '../components/Attachments';
 import DocumentPreview from '../components/DocumentPreview';
 
@@ -102,7 +102,7 @@ export default function Expenses() {
 
   return (
     <Page title="Expenses">
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
         <Card title={editingId ? 'Edit bill' : 'New bill'}>

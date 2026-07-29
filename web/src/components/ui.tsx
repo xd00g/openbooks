@@ -61,6 +61,20 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400">{children}</div>;
 }
 
+/** Status banner for the page-level `err` message state. Pages reuse one
+ *  string for both errors and success confirmations (by convention, success
+ *  messages are prefixed "✓ ") — this renders green for success, red for
+ *  everything else, instead of always-red regardless of outcome. */
+export function Banner({ text }: { text: string }) {
+  if (!text) return null;
+  const ok = text.trim().startsWith('✓');
+  return (
+    <div className={`mb-4 rounded-md px-3 py-2 text-sm ${ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+      {text}
+    </div>
+  );
+}
+
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
