@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { money, today, parseAmount, cleanAmount } from '../lib/format';
 import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
 import Attachments from '../components/Attachments';
+import DocumentPreview from '../components/DocumentPreview';
 
 export default function Sales() {
   const { companyId } = useAuth();
@@ -79,11 +80,29 @@ export default function Sales() {
 
   if (!companyId) return <Page title="Sales"><Empty>Select a company.</Empty></Page>;
 
+  const selectedCustomer = (customers.data ?? []).find((c: any) => c.id === inv.customerId);
+  const previewParty = selectedCustomer ? {
+    name: selectedCustomer.companyName || selectedCustomer.displayName,
+    sub: [
+      selectedCustomer.companyName ? selectedCustomer.displayName : null,
+      selectedCustomer.email,
+      selectedCustomer.billingAddress?.line1,
+      [selectedCustomer.billingAddress?.city, selectedCustomer.billingAddress?.region, selectedCustomer.billingAddress?.postalCode].filter(Boolean).join(', ') || null,
+    ].filter(Boolean),
+  } : null;
+  const previewLines = lines.map((l) => ({
+    name: (products.data ?? []).find((p: any) => p.id === l.itemId)?.name,
+    description: l.description,
+    quantity: l.quantity,
+    unitPrice: l.unitPrice,
+    amount: lineTotal(l),
+  }));
+
   return (
     <Page title="Sales">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
         <Card title="New invoice">
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
             <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="sm:col-span-2 rounded-md border border-slate-300 px-2 py-1">
@@ -150,6 +169,17 @@ export default function Sales() {
             </div>
           </div>
         </Card>
+
+        <DocumentPreview
+          kind="INVOICE"
+          issueDate={inv.issueDate}
+          dueDate={inv.dueDate || undefined}
+          party={previewParty}
+          lines={previewLines}
+          subtotal={subtotal}
+          taxTotal={taxTotal}
+          memo={inv.memo}
+        />
       </div>
 
       <Table head={['Number', 'Status', 'Total', 'Balance', '']}>
