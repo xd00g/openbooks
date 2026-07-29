@@ -19,6 +19,7 @@ import { CompanyModule } from './company/company.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { ImportModule } from './import/import.module';
+import { ItemsModule } from './items/items.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { ImportModule } from './import/import.module';
     CompanyModule,
     AdminModule,
     ImportModule,
+    ItemsModule,
   ],
   controllers: [HealthController],
 })

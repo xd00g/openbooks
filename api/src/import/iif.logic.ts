@@ -164,10 +164,16 @@ export interface IifEmployee {
   phone?: string;
 }
 
-/** Split a QuickBooks full name into first/last (last token = last name). */
+/** Split a QuickBooks full name into first/last. Handles both "First M Last"
+ *  and the "Last, First" format QuickBooks often exports. */
 function splitName(full: string): { firstName: string; lastName: string } {
-  const parts = full.trim().split(/\s+/);
-  if (parts.length <= 1) return { firstName: full.trim(), lastName: '' };
+  const s = full.trim();
+  if (s.includes(',')) {
+    const [last, first] = s.split(',', 2).map((x) => x.trim());
+    return { firstName: first || last, lastName: first ? last : '' };
+  }
+  const parts = s.split(/\s+/);
+  if (parts.length <= 1) return { firstName: s, lastName: '' };
   return { firstName: parts.slice(0, -1).join(' '), lastName: parts[parts.length - 1] };
 }
 

@@ -39,6 +39,8 @@ export class ImportController {
       accounts?: boolean;
       customers?: boolean;
       vendors?: boolean;
+      employees?: boolean;
+      items?: boolean;
     },
   ) {
     if (!body?.content?.trim()) throw new BadRequestException('content is required.');
@@ -46,6 +48,8 @@ export class ImportController {
       accounts: body.accounts,
       customers: body.customers,
       vendors: body.vendors,
+      employees: body.employees,
+      items: body.items,
     });
   }
 }
