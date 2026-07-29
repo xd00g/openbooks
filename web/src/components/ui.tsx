@@ -44,16 +44,59 @@ export function Button({ children, onClick, variant = 'primary', type = 'button'
   );
 }
 
-export function Table({ head, children }: { head: string[]; children: ReactNode }) {
+export interface SortState { key: string; dir: 'asc' | 'desc' }
+export type HeadCell = string | { label: string; key?: string };
+
+/** `head` entries can be a plain string (unsortable, unchanged from before) or
+ *  `{ label, key }` — pass `sort` + `onSort` to make those clickable with an
+ *  asc/desc indicator. Fully backward-compatible: existing string[] callers
+ *  are unaffected. */
+export function Table({ head, children, sort, onSort }: {
+  head: HeadCell[]; children: ReactNode; sort?: SortState | null; onSort?: (key: string) => void;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm">
         <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-          <tr>{head.map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}</tr>
+          <tr>
+            {head.map((h, i) => {
+              const label = typeof h === 'string' ? h : h.label;
+              const key = typeof h === 'string' ? undefined : h.key;
+              const active = sort?.key === key;
+              return (
+                <th key={key ?? `${label}-${i}`} className="px-4 py-2 font-medium">
+                  {key && onSort ? (
+                    <button onClick={() => onSort(key)} className={`flex items-center gap-1 hover:text-slate-800 ${active ? 'text-slate-800' : ''}`}>
+                      {label}
+                      <span className="text-[9px]">{active ? (sort!.dir === 'asc' ? '▲' : '▼') : ''}</span>
+                    </button>
+                  ) : label}
+                </th>
+              );
+            })}
+          </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">{children}</tbody>
       </table>
     </div>
+  );
+}
+
+/** Toggle asc -> desc -> unsorted for a click-to-sort table header. */
+export function toggleSort(current: SortState | null, key: string): SortState | null {
+  if (current?.key !== key) return { key, dir: 'asc' };
+  if (current.dir === 'asc') return { key, dir: 'desc' };
+  return null;
+}
+
+export function SearchInput({ value, onChange, placeholder = 'Search…' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-64 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+    />
   );
 }
 

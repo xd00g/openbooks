@@ -10,7 +10,7 @@ export default function TaxRates() {
       columns: [
         { key: 'name', label: 'Name' },
         { key: 'agency', label: 'Agency', render: (r) => r.agency?.name ?? '—' },
-        { key: 'rate', label: 'Rate', render: (r) => `${(Number(r.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%` },
+        { key: 'rate', label: 'Rate', render: (r) => `${(Number(r.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%`, sortValue: (r: any) => Number(r.rate) },
       ],
       fields: [
         { key: 'name', label: 'Name * (e.g. "OH Sales Tax")' },

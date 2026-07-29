@@ -1,8 +1,8 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { Page, Table, Button, Empty, Modal } from './ui';
+import { Page, Table, Button, Empty, Modal, SearchInput, Banner, toggleSort, type SortState } from './ui';
 import { formatPhone } from '../lib/format';
 
 export interface FieldDef {
@@ -23,7 +23,7 @@ export interface EntityConfig {
   title: string;
   endpoint: string; // e.g. '/sales/customers'
   queryKey: string; // e.g. 'customers'
-  columns: { key: string; label: string; render?: (row: any) => ReactNode }[];
+  columns: { key: string; label: string; render?: (row: any) => ReactNode; sortValue?: (row: any) => string | number; noSort?: boolean }[];
   fields: FieldDef[];
   addressKey?: string; // e.g. 'billingAddress' | 'address' — a JSON sub-object
   addressLabel?: string;
@@ -41,6 +41,8 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
   const key = [config.queryKey, companyId];
   const [err, setErr] = useState('');
   const [form, setForm] = useState<any | null>(null); // null = closed; {} = new; {...} = edit
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const list = useQuery({ queryKey: key, enabled: !!companyId, queryFn: () => api.get(config.endpoint) });
 
@@ -94,11 +96,35 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
 
   if (!companyId) return <Page title={config.title}><Empty>Select a company.</Empty></Page>;
 
-  const rows = list.data ?? [];
+  const allRows = list.data ?? [];
+  const colValue = (c: EntityConfig['columns'][number], row: any) => (c.sortValue ? c.sortValue(row) : c.render ? c.render(row) : row[c.key]);
+  const rows = useMemo(() => {
+    let r = allRows;
+    if (q.trim()) {
+      const needle = q.trim().toLowerCase();
+      r = r.filter((row: any) => config.columns.some((c) => String(colValue(c, row) ?? '').toLowerCase().includes(needle)));
+    }
+    if (sort) {
+      const col = config.columns.find((c) => c.key === sort.key);
+      r = [...r].sort((a: any, b: any) => {
+        const va = col ? colValue(col, a) : a[sort.key];
+        const vb = col ? colValue(col, b) : b[sort.key];
+        const cmp = va == null ? -1 : vb == null ? 1 : va > vb ? 1 : va < vb ? -1 : 0;
+        return sort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return r;
+  }, [allRows, q, sort]);
+
   return (
     <Page title={config.title} actions={<Button onClick={openNew}>{config.newLabel}</Button>}>
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-      <Table head={[...config.columns.map((c) => c.label), 'Active', '']}>
+      <Banner text={err} />
+      <div className="mb-3"><SearchInput value={q} onChange={setQ} placeholder={`Search ${config.title.toLowerCase()}…`} /></div>
+      <Table
+        head={[...config.columns.map((c) => (c.noSort ? c.label : { label: c.label, key: c.key })), 'Active', '']}
+        sort={sort}
+        onSort={(k) => setSort((s) => toggleSort(s, k))}
+      >
         {rows.map((row: any) => (
           <tr key={row.id} className={row.isActive === false ? 'opacity-50' : ''}>
             {config.columns.map((c) => (
@@ -112,7 +138,7 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
             <td className="px-4 py-2 text-right"><Button variant="ghost" onClick={() => openEdit(row)}>Edit</Button></td>
           </tr>
         ))}
-        {rows.length === 0 && <tr><td colSpan={config.columns.length + 2} className="px-4 py-6 text-center text-sm text-slate-400">None yet.</td></tr>}
+        {rows.length === 0 && <tr><td colSpan={config.columns.length + 2} className="px-4 py-6 text-center text-sm text-slate-400">{q.trim() ? 'No matches.' : 'None yet.'}</td></tr>}
       </Table>
 
       {form && (

@@ -9,11 +9,11 @@ export default function Employees() {
       queryKey: 'employees',
       newLabel: 'New employee',
       columns: [
-        { key: 'name', label: 'Name', render: (r) => `${r.firstName} ${r.lastName}` },
+        { key: 'name', label: 'Name', render: (r) => `${r.firstName} ${r.lastName}`, sortValue: (r: any) => `${r.lastName} ${r.firstName}` },
         { key: 'email', label: 'Email' },
         { key: 'phone', label: 'Phone', render: (r) => formatPhone(r.phone) },
         { key: 'payType', label: 'Pay type', render: (r) => r.payType ?? 'hourly' },
-        { key: 'payRate', label: 'Rate', render: (r) => (r.payRate ? money(r.payRate) : '—') },
+        { key: 'payRate', label: 'Rate', render: (r) => (r.payRate ? money(r.payRate) : '—'), sortValue: (r: any) => Number(r.payRate ?? 0) },
       ],
       fields: [
         { key: 'firstName', label: 'First name *' },

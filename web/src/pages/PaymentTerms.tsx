@@ -10,7 +10,7 @@ export default function PaymentTerms() {
       columns: [
         { key: 'name', label: 'Name' },
         { key: 'dueInDays', label: 'Due (days)' },
-        { key: 'discountPercent', label: 'Discount', render: (r) => (r.discountPercent ? `${(Number(r.discountPercent) * 100).toFixed(2)}% / ${r.discountDays ?? 0}d` : '—') },
+        { key: 'discountPercent', label: 'Discount', render: (r) => (r.discountPercent ? `${(Number(r.discountPercent) * 100).toFixed(2)}% / ${r.discountDays ?? 0}d` : '—'), sortValue: (r: any) => Number(r.discountPercent ?? 0) },
       ],
       fields: [
         { key: 'name', label: 'Name * (e.g. "Net 30")' },
