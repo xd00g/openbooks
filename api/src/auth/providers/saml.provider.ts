@@ -22,7 +22,7 @@ export class SamlProvider {
       entryPoint: process.env.SAML_ENTRY_POINT,
       issuer: process.env.SAML_ISSUER ?? 'openbooks',
       idpCert: process.env.SAML_CERT ?? '',
-      callbackUrl: process.env.SAML_CALLBACK_URL,
+      callbackUrl: process.env.SAML_CALLBACK_URL ?? '',
       wantAssertionsSigned: true,
       wantAuthnResponseSigned: true,
     };

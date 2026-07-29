@@ -38,3 +38,6 @@ Thumbs.db
 # test / coverage
 coverage/
 .nyc_output/
+
+# deploy-time secrets (app-role/admin passwords)
+.deploy-secrets
