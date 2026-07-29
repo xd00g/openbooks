@@ -29,6 +29,7 @@ export default function Expenses() {
   const billHead = { vendorId: '', number: '', issueDate: today(), dueDate: '' };
   const [bill, setBill] = useState(billHead);
   const [blines, setBlines] = useState<(typeof emptyLine)[]>([{ ...emptyLine }]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const setBline = (i: number, k: string, v: string) => setBlines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
   const addBline = () => setBlines((ls) => [...ls, { ...emptyLine }]);
   const rmBline = (i: number) => setBlines((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
@@ -37,17 +38,39 @@ export default function Expenses() {
     setBlines((ls) => ls.map((l, j) => (j === i ? { ...l, itemId, accountId: it?.expenseAccountId || l.accountId, description: it?.description ?? l.description, unitPrice: it?.unitPrice != null ? String(it.unitPrice) : l.unitPrice } : l)));
   };
   const billTotal = blines.reduce((s, l) => s + parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'), 0);
-  const createBill = useMutation({
-    mutationFn: () => api.post('/expenses/bills', {
-      vendorId: bill.vendorId, number: bill.number || undefined, issueDate: bill.issueDate, dueDate: bill.dueDate || undefined,
-      lines: blines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: cleanAmount(l.quantity) || '1', unitPrice: cleanAmount(l.unitPrice) })),
-    }),
-    onSuccess: () => { setBill(billHead); setBlines([{ ...emptyLine }]); refresh(); },
+  const resetBillForm = () => { setBill(billHead); setBlines([{ ...emptyLine }]); setEditingId(null); };
+  const saveBill = useMutation({
+    mutationFn: () => {
+      const payload = {
+        vendorId: bill.vendorId, number: bill.number || undefined, issueDate: bill.issueDate, dueDate: bill.dueDate || undefined,
+        lines: blines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, itemId: l.itemId || undefined, description: l.description, quantity: cleanAmount(l.quantity) || '1', unitPrice: cleanAmount(l.unitPrice) })),
+      };
+      return editingId ? api.patch(`/expenses/bills/${editingId}`, payload) : api.post('/expenses/bills', payload);
+    },
+    onSuccess: () => { resetBillForm(); refresh(); },
     onError: (e: any) => setErr(e.message),
   });
+  const editBill = async (b: any) => {
+    setErr('');
+    try {
+      const full: any = await api.get(`/expenses/bills/${b.id}`);
+      setBill({
+        vendorId: full.vendorId, number: full.number || '',
+        issueDate: String(full.issueDate).slice(0, 10),
+        dueDate: full.dueDate ? String(full.dueDate).slice(0, 10) : '',
+      });
+      setBlines((full.lines ?? []).map((l: any) => ({
+        itemId: l.itemId || '', accountId: l.accountId, description: l.description || '',
+        quantity: l.quantity.toString(), unitPrice: l.unitPrice.toString(),
+      })));
+      setEditingId(b.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e: any) { setErr(e.message); }
+  };
 
   const finalize = (id: string) => wrap(api.post(`/expenses/bills/${id}/finalize`));
   const voidBill = (id: string) => { if (confirm('Void this bill? A reversing entry will be posted.')) wrap(api.post(`/expenses/bills/${id}/void`)); };
+  const revertBill = (id: string) => { if (confirm('Revert this bill to draft? The posted entry will be reversed and it becomes editable again.')) wrap(api.post(`/expenses/bills/${id}/revert`)); };
   const deleteBill = (id: string) => { if (confirm('Delete this draft bill?')) wrap(api.del(`/expenses/bills/${id}`)); };
   const pay = (b: any) => {
     if (!bankAccounts[0]) return setErr('Create a bank account first.');
@@ -81,9 +104,9 @@ export default function Expenses() {
     <Page title="Expenses">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-        <Card title="New bill">
-          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
+        <Card title={editingId ? 'Edit bill' : 'New bill'}>
+          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2">
               <option value="">Select vendor…</option>
               {(vendors.data ?? []).map((v: any) => <option key={v.id} value={v.id}>{v.displayName}</option>)}
@@ -130,7 +153,10 @@ export default function Expenses() {
           </div>
 
           <div className="mt-4 flex flex-col items-end gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
-            <Button onClick={() => createBill.mutate()} disabled={!bill.vendorId || !blines.some((l) => l.accountId && l.unitPrice)}>Create draft</Button>
+            <div className="flex items-center gap-2">
+              {editingId && <button onClick={resetBillForm} className="text-xs text-slate-500 hover:underline">Cancel edit</button>}
+              <Button onClick={() => saveBill.mutate()} disabled={!bill.vendorId || !blines.some((l) => l.accountId && l.unitPrice)}>{editingId ? 'Save changes' : 'Create draft'}</Button>
+            </div>
             <div className="w-full max-w-[220px] rounded-lg bg-slate-50 p-3 text-sm">
               <div className="flex justify-between border-t border-slate-200 pt-1 text-base font-semibold text-slate-800"><span>Total</span><span>{money(billTotal)}</span></div>
             </div>
@@ -139,6 +165,7 @@ export default function Expenses() {
 
         <DocumentPreview
           kind="BILL"
+          number={bill.number || undefined}
           issueDate={bill.issueDate}
           dueDate={bill.dueDate || undefined}
           party={previewParty}
@@ -148,32 +175,39 @@ export default function Expenses() {
         />
       </div>
 
-      <Table head={['Vendor ref', 'Status', 'Total', 'Balance', '']}>
-        {(bills.data ?? []).map((b: any) => (
-          <tr key={b.id}>
-            <td className="px-4 py-2 font-medium">{b.number || '—'}</td>
-            <td className="px-4 py-2 capitalize text-slate-500">{b.status.replace(/_/g, ' ')}</td>
-            <td className="px-4 py-2 text-right">{money(b.total, b.currency)}</td>
-            <td className="px-4 py-2 text-right">{money(b.balanceDue, b.currency)}</td>
-            <td className="px-4 py-2 text-right">
-              <span className="inline-flex gap-2">
-                <Button variant="ghost" onClick={() => setFilesFor(b.id)}>Files</Button>
-                {b.status === 'draft' && <Button variant="ghost" onClick={() => finalize(b.id)}>Finalize</Button>}
-                {b.status === 'draft' && <Button variant="ghost" onClick={() => deleteBill(b.id)}>Delete</Button>}
-                {b.status === 'open' && Number(b.amountPaid ?? 0) === 0 && (
-                  <Button variant="ghost" onClick={() => voidBill(b.id)}>Void</Button>
-                )}
-                {(b.status === 'open' || b.status === 'partially_paid') && Number(b.balanceDue) > 0 && (
-                  <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
-                )}
-              </span>
-            </td>
-          </tr>
-        ))}
-        {(bills.data ?? []).length === 0 && (
-          <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No bills yet.</td></tr>
-        )}
-      </Table>
+      <div className="mb-2 text-sm font-medium text-slate-600">Bills</div>
+      <div className="max-h-[440px] overflow-y-auto rounded-xl">
+        <Table head={['Vendor ref', 'Status', 'Total', 'Balance', '']}>
+          {(bills.data ?? []).map((b: any) => (
+            <tr key={b.id}>
+              <td className="px-4 py-2 font-medium">{b.number || '—'}</td>
+              <td className="px-4 py-2 capitalize text-slate-500">{b.status.replace(/_/g, ' ')}</td>
+              <td className="px-4 py-2 text-right">{money(b.total, b.currency)}</td>
+              <td className="px-4 py-2 text-right">{money(b.balanceDue, b.currency)}</td>
+              <td className="px-4 py-2 text-right">
+                <span className="inline-flex flex-wrap justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setFilesFor(b.id)}>Files</Button>
+                  {b.status === 'draft' && <Button variant="ghost" onClick={() => editBill(b)}>Edit</Button>}
+                  {b.status === 'draft' && <Button variant="ghost" onClick={() => finalize(b.id)}>Finalize</Button>}
+                  {b.status === 'draft' && <Button variant="ghost" onClick={() => deleteBill(b.id)}>Delete</Button>}
+                  {b.status === 'open' && Number(b.amountPaid ?? 0) === 0 && (
+                    <>
+                      <Button variant="ghost" onClick={() => revertBill(b.id)}>Revert to Draft</Button>
+                      <Button variant="ghost" onClick={() => voidBill(b.id)}>Void</Button>
+                    </>
+                  )}
+                  {(b.status === 'open' || b.status === 'partially_paid') && Number(b.balanceDue) > 0 && (
+                    <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
+                  )}
+                </span>
+              </td>
+            </tr>
+          ))}
+          {(bills.data ?? []).length === 0 && (
+            <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No bills yet.</td></tr>
+          )}
+        </Table>
+      </div>
 
       {filesFor && (
         <Modal title="Bill attachments" onClose={() => setFilesFor(null)}>

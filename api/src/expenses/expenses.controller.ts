@@ -68,6 +68,29 @@ export class ExpensesController {
     return this.expenses.createBill(company(cid), body);
   }
 
+  @Patch('bills/:id')
+  updateBill(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      vendorId: string;
+      number?: string;
+      issueDate: string;
+      dueDate?: string;
+      currency?: string;
+      memo?: string;
+      lines: DocLineInput[];
+    },
+  ) {
+    return this.expenses.updateBill(company(cid), id, body);
+  }
+
+  @Post('bills/:id/revert')
+  revertBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.expenses.revertBill(company(cid), id);
+  }
+
   @Post('bills/:id/finalize')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.expenses.finalizeBill(company(cid), id);
@@ -86,6 +109,11 @@ export class ExpensesController {
   @Get('bills')
   listBills(@Headers('x-company-id') cid: string) {
     return this.expenses.listBills(company(cid));
+  }
+
+  @Get('bills/:id')
+  getBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.expenses.getBill(company(cid), id);
   }
 
   @Post('payments')
