@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
+import { Money } from '../ledger/money';
 
 /** Every account subtype maps to exactly one top-level type. Deriving the type
  *  from the subtype keeps the two columns from ever drifting out of sync. */
@@ -34,7 +36,42 @@ const SUBTYPE_TO_TYPE: Record<string, string> = {
 
 @Injectable()
 export class AccountsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledger: LedgerService,
+  ) {}
+
+  /** Manually add a transaction to an account (for non-synced bank/CC accounts):
+   *  a posted 2-line journal entry between the account and a category account.
+   *  inflow  = money in  (debit this account, credit the category)
+   *  outflow = money out (credit this account, debit the category) */
+  createTransaction(
+    companyId: string,
+    accountId: string,
+    input: { date: string; amount: string; direction: 'inflow' | 'outflow'; categoryAccountId: string; memo?: string },
+    userId?: string,
+  ) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const amt = Money.of(input.amount);
+      if (!amt.isPositive()) throw new BadRequestException('Amount must be a positive number.');
+      if (!input.categoryAccountId) throw new BadRequestException('A category account is required.');
+      const bank = { accountId, debit: amt, credit: Money.ZERO };
+      const cat = { accountId: input.categoryAccountId, debit: Money.ZERO, credit: amt };
+      const lines =
+        input.direction === 'inflow'
+          ? [bank, { ...cat }]
+          : [{ accountId, debit: Money.ZERO, credit: amt }, { accountId: input.categoryAccountId, debit: amt, credit: Money.ZERO }];
+      const entryId = await this.ledger.createPostedEntry(tx, {
+        companyId,
+        entryDate: input.date,
+        sourceType: 'manual' as never,
+        memo: input.memo,
+        createdById: userId,
+        lines,
+      });
+      return { entryId };
+    });
+  }
 
   list(companyId: string) {
     return this.prisma.forCompany(companyId, (tx) =>
