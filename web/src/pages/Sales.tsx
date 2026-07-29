@@ -40,19 +40,32 @@ export default function Sales() {
     onError: (e: any) => setErr(e.message),
   });
 
-  // new invoice
-  const [inv, setInv] = useState({ customerId: '', issueDate: today(), dueDate: '', paymentTermId: '', accountId: '', description: '', quantity: '1', unitPrice: '', taxRateId: '' });
+  // new invoice (multi-line)
+  const emptyLine = { accountId: '', description: '', quantity: '1', unitPrice: '', taxRateId: '' };
+  const invHead = { customerId: '', issueDate: today(), dueDate: '', paymentTermId: '', memo: '' };
+  const [inv, setInv] = useState(invHead);
+  const [lines, setLines] = useState<(typeof emptyLine)[]>([{ ...emptyLine }]);
+  const setLine = (i: number, k: string, v: string) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
+  const addLine = () => setLines((ls) => [...ls, { ...emptyLine }]);
+  const rmLine = (i: number) => setLines((ls) => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls));
+  const ratePct = (id: string) => { const t = (taxRates.data ?? []).find((x: any) => x.id === id); return t ? Number(t.rate) : 0; };
+  const lineTotal = (l: typeof emptyLine) => (Number(l.quantity || 0) * Number(l.unitPrice || 0));
+  const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
+  const taxTotal = lines.reduce((s, l) => s + lineTotal(l) * ratePct(l.taxRateId), 0);
   const createInvoice = useMutation({
     mutationFn: () => api.post('/sales/invoices', {
       customerId: inv.customerId,
       issueDate: inv.issueDate,
       dueDate: inv.dueDate || undefined,
       paymentTermId: inv.paymentTermId || undefined,
-      lines: [{ accountId: inv.accountId, description: inv.description, quantity: inv.quantity, unitPrice: inv.unitPrice, taxRateId: inv.taxRateId || undefined }],
+      memo: inv.memo || undefined,
+      lines: lines.filter((l) => l.accountId && l.unitPrice).map((l) => ({ accountId: l.accountId, description: l.description, quantity: l.quantity || '1', unitPrice: l.unitPrice, taxRateId: l.taxRateId || undefined })),
     }),
-    onSuccess: () => { setInv({ ...inv, description: '', unitPrice: '' }); refresh(); },
+    onSuccess: () => { setInv(invHead); setLines([{ ...emptyLine }]); refresh(); },
     onError: (e: any) => setErr(e.message),
   });
+  const downloadPdf = (i: any) => api.blobUrl(`/sales/invoices/${i.id}/pdf`).then((u) => window.open(u, '_blank')).catch((e) => setErr(e.message));
+  const sendInvoice = (i: any) => wrap(api.post(`/sales/invoices/${i.id}/send`, {}).then((r: any) => setErr(`✓ Sent to ${r.to}`)));
 
   const finalize = (id: string) => wrap(api.post(`/sales/invoices/${id}/finalize`));
   const voidInvoice = (id: string) => { if (confirm('Void this invoice? A reversing entry will be posted.')) wrap(api.post(`/sales/invoices/${id}/void`)); };
@@ -94,17 +107,6 @@ export default function Sales() {
               <option value="">Select customer…</option>
               {(customers.data ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.displayName}</option>)}
             </select>
-            <select value={inv.accountId} onChange={(e) => setInv({ ...inv, accountId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
-              <option value="">Income account…</option>
-              {incomeAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
-            </select>
-            <input value={inv.description} onChange={(e) => setInv({ ...inv, description: e.target.value })} placeholder="Description" className="col-span-2 rounded-md border border-slate-300 px-2 py-1" />
-            <input value={inv.quantity} onChange={(e) => setInv({ ...inv, quantity: e.target.value })} placeholder="Qty" className="rounded-md border border-slate-300 px-2 py-1" />
-            <input value={inv.unitPrice} onChange={(e) => setInv({ ...inv, unitPrice: e.target.value })} placeholder="Unit price" className="rounded-md border border-slate-300 px-2 py-1" />
-            <select value={inv.taxRateId} onChange={(e) => setInv({ ...inv, taxRateId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
-              <option value="">No sales tax</option>
-              {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
-            </select>
             <select value={inv.paymentTermId} onChange={(e) => setInv({ ...inv, paymentTermId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
               <option value="">Payment term (sets due date)…</option>
               {(terms.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} — net {t.dueInDays}d</option>)}
@@ -112,8 +114,41 @@ export default function Sales() {
             <input type="date" value={inv.issueDate} onChange={(e) => setInv({ ...inv, issueDate: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1" />
             <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} placeholder="Due (override)" className="rounded-md border border-slate-300 px-2 py-1" />
           </div>
-          <div className="mt-3">
-            <Button onClick={() => createInvoice.mutate()} disabled={!inv.customerId || !inv.accountId || !inv.unitPrice}>Create draft</Button>
+
+          <div className="mt-3 space-y-2">
+            {lines.map((l, i) => (
+              <div key={i} className="rounded-md border border-slate-200 p-2">
+                <div className="grid grid-cols-2 gap-1.5 text-sm">
+                  <select value={l.accountId} onChange={(e) => setLine(i, 'accountId', e.target.value)} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+                    <option value="">Income account…</option>
+                    {incomeAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
+                  </select>
+                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-2 rounded-md border border-slate-300 px-2 py-1" />
+                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="rounded-md border border-slate-300 px-2 py-1" />
+                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Unit price" className="rounded-md border border-slate-300 px-2 py-1" />
+                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+                    <option value="">No sales tax</option>
+                    {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
+                  </select>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                  <span>Line: {money(lineTotal(l))}</span>
+                  {lines.length > 1 && <button onClick={() => rmLine(i)} className="text-red-500 hover:underline">Remove</button>}
+                </div>
+              </div>
+            ))}
+            <button onClick={addLine} className="text-xs text-emerald-700 hover:underline">+ Add line item</button>
+          </div>
+
+          <input value={inv.memo} onChange={(e) => setInv({ ...inv, memo: e.target.value })} placeholder="Notes (appear on the PDF)" className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+
+          <div className="mt-3 flex items-end justify-between">
+            <div className="text-xs text-slate-500">
+              <div>Subtotal: {money(subtotal)}</div>
+              <div>Tax: {money(taxTotal)}</div>
+              <div className="font-semibold text-slate-800">Total: {money(subtotal + taxTotal)}</div>
+            </div>
+            <Button onClick={() => createInvoice.mutate()} disabled={!inv.customerId || !lines.some((l) => l.accountId && l.unitPrice)}>Create draft</Button>
           </div>
         </Card>
       </div>
@@ -127,6 +162,8 @@ export default function Sales() {
             <td className="px-4 py-2 text-right">{money(i.balanceDue)}</td>
             <td className="px-4 py-2 text-right">
               <span className="inline-flex gap-2">
+                <Button variant="ghost" onClick={() => downloadPdf(i)}>PDF</Button>
+                {i.status !== 'void' && <Button variant="ghost" onClick={() => sendInvoice(i)}>Send</Button>}
                 <Button variant="ghost" onClick={() => setFilesFor(i.id)}>Files</Button>
                 {i.status === 'draft' && <Button variant="ghost" onClick={() => finalize(i.id)}>Finalize</Button>}
                 {i.status === 'draft' && <Button variant="ghost" onClick={() => deleteInvoice(i.id)}>Delete</Button>}

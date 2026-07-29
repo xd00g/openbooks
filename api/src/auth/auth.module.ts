@@ -33,6 +33,6 @@ import { PermissionsGuard } from './guards/permissions.guard';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [AuthService, AdminPrismaService, SystemSettingsService],
+  exports: [AuthService, AdminPrismaService, SystemSettingsService, MailService],
 })
 export class AuthModule {}

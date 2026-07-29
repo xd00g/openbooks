@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { SalesService, CustomerInput } from './sales.service';
@@ -70,6 +71,24 @@ export class SalesController {
   @Post('invoices/:id/void')
   voidInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.voidInvoice(company(cid), id);
+  }
+
+  @Get('invoices/:id/pdf')
+  async pdf(@Headers('x-company-id') cid: string, @Param('id') id: string): Promise<StreamableFile> {
+    const { buffer, number } = await this.sales.invoicePdf(company(cid), id);
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `inline; filename="${number}.pdf"`,
+    });
+  }
+
+  @Post('invoices/:id/send')
+  send(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: { to?: string },
+  ) {
+    return this.sales.sendInvoice(company(cid), id, body?.to);
   }
 
   @Delete('invoices/:id')

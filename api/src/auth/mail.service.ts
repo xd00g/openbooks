@@ -44,6 +44,27 @@ export class MailService {
     return { messageId: info.messageId };
   }
 
+  async sendWithAttachment(
+    to: string,
+    subject: string,
+    text: string,
+    attachments: { filename: string; content: Buffer; contentType?: string }[],
+  ) {
+    const c = this.settings.smtp();
+    if (!c.fromEmail) {
+      throw new BadRequestException('SMTP "from" address is not configured.');
+    }
+    const info = await this.transport().sendMail({
+      from: c.fromName ? `${c.fromName} <${c.fromEmail}>` : c.fromEmail,
+      to,
+      subject,
+      text,
+      attachments,
+    });
+    this.log.log(`Sent mail+attachment to ${to} (id ${info.messageId})`);
+    return { messageId: info.messageId };
+  }
+
   async sendTest(to: string) {
     if (!to?.trim()) throw new BadRequestException('A recipient email is required.');
     await this.send(
