@@ -3,8 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../common/crypto/encryption.service';
 import {
   parseIif,
+  sectionCounts,
   toAccounts,
   toCustomers,
+  toEmployees,
+  toItems,
   toVendors,
 } from './iif.logic';
 
@@ -12,6 +15,8 @@ interface CommitOptions {
   accounts?: boolean;
   customers?: boolean;
   vendors?: boolean;
+  employees?: boolean;
+  items?: boolean;
 }
 
 @Injectable()
@@ -27,15 +32,23 @@ export class ImportService {
     const { accounts, warnings } = toAccounts(parsed);
     const customers = toCustomers(parsed);
     const vendors = toVendors(parsed);
+    const employees = toEmployees(parsed);
+    const items = toItems(parsed);
     return {
       accounts,
       customers,
       vendors,
+      employees,
+      items,
       counts: {
         accounts: accounts.length,
         customers: customers.length,
         vendors: vendors.length,
+        employees: employees.length,
+        items: items.length,
       },
+      // Every QuickBooks list found in the file (incl. ones not yet imported).
+      detected: sectionCounts(parsed),
       warnings,
     };
   }
@@ -46,6 +59,8 @@ export class ImportService {
       accounts: { created: 0, skipped: 0 },
       customers: { created: 0, skipped: 0 },
       vendors: { created: 0, skipped: 0 },
+      employees: { created: 0, skipped: 0 },
+      items: { created: 0, skipped: 0 },
       warnings: [] as string[],
     };
 
@@ -140,6 +155,61 @@ export class ImportService {
           });
           names.add(v.displayName.toLowerCase());
           result.vendors.created++;
+        }
+      }
+
+      if (opts.employees) {
+        const employees = toEmployees(parsed);
+        const existing = await tx.employee.findMany({
+          select: { firstName: true, lastName: true },
+        });
+        const seen = new Set(
+          existing.map((e) => `${e.firstName} ${e.lastName}`.trim().toLowerCase()),
+        );
+        for (const e of employees) {
+          const keyName = `${e.firstName} ${e.lastName}`.trim().toLowerCase();
+          if (seen.has(keyName)) {
+            result.employees.skipped++;
+            continue;
+          }
+          await tx.employee.create({
+            data: {
+              companyId,
+              firstName: e.firstName,
+              lastName: e.lastName || '—',
+              email: e.email ?? null,
+              phone: e.phone ?? null,
+            },
+          });
+          seen.add(keyName);
+          result.employees.created++;
+        }
+      }
+
+      if (opts.items) {
+        const items = toItems(parsed);
+        const existing = await tx.item.findMany({ select: { name: true } });
+        const names = new Set(existing.map((i) => i.name.toLowerCase()));
+        for (const it of items) {
+          if (names.has(it.name.toLowerCase())) {
+            result.items.skipped++;
+            continue;
+          }
+          try {
+            await tx.item.create({
+              data: {
+                companyId,
+                name: it.name,
+                description: it.description ?? null,
+                unitPrice: it.unitPrice ?? null,
+                type: it.type as never,
+              },
+            });
+            names.add(it.name.toLowerCase());
+            result.items.created++;
+          } catch {
+            result.items.skipped++;
+          }
         }
       }
 

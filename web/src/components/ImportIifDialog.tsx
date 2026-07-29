@@ -17,7 +17,7 @@ export default function ImportIifDialog({
   const fileRef = useRef<HTMLInputElement>(null);
   const [content, setContent] = useState('');
   const [preview, setPreview] = useState<any>(null);
-  const [sel, setSel] = useState({ accounts: true, customers: true, vendors: true });
+  const [sel, setSel] = useState({ accounts: true, customers: true, vendors: true, employees: true, items: true });
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,9 +46,9 @@ export default function ImportIifDialog({
         <div className="text-sm">
           <p className="mb-3 font-medium text-emerald-700">Import complete.</p>
           <ul className="space-y-1 text-slate-600">
-            <li>Accounts: {result.accounts.created} created, {result.accounts.skipped} skipped</li>
-            <li>Customers: {result.customers.created} created, {result.customers.skipped} skipped</li>
-            <li>Vendors: {result.vendors.created} created, {result.vendors.skipped} skipped</li>
+            {['accounts', 'customers', 'vendors', 'employees', 'items'].map((k) => (
+              <li key={k} className="capitalize">{k}: {result[k].created} created, {result[k].skipped} skipped</li>
+            ))}
           </ul>
           {result.warnings?.length > 0 && (
             <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
@@ -82,6 +82,8 @@ export default function ImportIifDialog({
                   { k: 'accounts', label: `Accounts (${preview.counts.accounts})` },
                   { k: 'customers', label: `Customers (${preview.counts.customers})` },
                   { k: 'vendors', label: `Vendors (${preview.counts.vendors})` },
+                  { k: 'employees', label: `Employees (${preview.counts.employees})` },
+                  { k: 'items', label: `Items / products (${preview.counts.items})` },
                 ].map((row) => (
                   <label key={row.k} className="flex items-center gap-2">
                     <input
@@ -94,6 +96,13 @@ export default function ImportIifDialog({
                   </label>
                 ))}
               </div>
+              {preview.detected && (
+                <div className="mt-3 text-xs text-slate-400">
+                  <span className="font-medium">All lists QuickBooks exported:</span>{' '}
+                  {Object.entries(preview.detected).map(([t, n]) => `${t} (${n})`).join(', ')}
+                  <div className="mt-1 italic">Lists beyond the five above aren’t imported yet and are skipped.</div>
+                </div>
+              )}
               {preview.warnings?.length > 0 && (
                 <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
                   {preview.warnings.slice(0, 8).map((w: string, i: number) => <div key={i}>{w}</div>)}
@@ -106,7 +115,7 @@ export default function ImportIifDialog({
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             {preview ? (
-              <Button onClick={doCommit} disabled={busy || (!sel.accounts && !sel.customers && !sel.vendors)}>
+              <Button onClick={doCommit} disabled={busy || !Object.values(sel).some(Boolean)}>
                 {busy ? 'Importing…' : 'Import selected'}
               </Button>
             ) : (

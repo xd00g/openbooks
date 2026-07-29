@@ -38,11 +38,11 @@ function CompanySwitcher() {
   const memberships = me?.memberships ?? [];
   return (
     <div className="mx-3 mb-3">
-      <div className="flex items-center rounded-md bg-slate-800 px-2">
+      <div className="flex items-center rounded-md bg-white/10 px-2 text-[color:var(--ob-sidebar-text,#e2e8f0)] ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/20 focus-within:ring-2 focus-within:ring-[color:var(--ob-accent,#6366f1)]">
         <select
           value={companyId ?? ''}
           onChange={(e) => setCompany(e.target.value)}
-          className="w-full bg-transparent py-2 text-sm text-slate-100 focus:outline-none"
+          className="w-full cursor-pointer bg-transparent py-2 text-sm font-medium focus:outline-none"
         >
           {memberships.map((m) => (
             <option key={m.companyId} value={m.companyId} className="text-slate-900">
@@ -50,11 +50,11 @@ function CompanySwitcher() {
             </option>
           ))}
         </select>
-        <ChevronDown size={16} className="text-slate-400" />
+        <ChevronDown size={16} className="opacity-70" />
       </div>
       <button
         onClick={() => setCreating(true)}
-        className="mt-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+        className="mt-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-[color:var(--ob-sidebar-text,#e2e8f0)] opacity-75 transition-colors hover:bg-white/10 hover:opacity-100"
       >
         <Plus size={14} /> New company
       </button>
@@ -120,8 +120,8 @@ function Sidebar() {
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                isActive ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              `flex items-center gap-3 rounded-md px-3 py-2 text-sm text-[color:var(--ob-sidebar-text,#e2e8f0)] transition-colors hover:bg-white/10 ${
+                isActive ? 'bg-white/15 font-medium opacity-100' : 'opacity-75 hover:opacity-100'
               }`
             }
           >
@@ -130,9 +130,9 @@ function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="border-t border-slate-800 px-4 py-3">
-        <div className="truncate text-xs text-slate-400">{me?.user.email}</div>
-        <button onClick={logout} className="mt-1 flex items-center gap-1 text-xs text-slate-300 hover:text-white">
+      <div className="border-t border-white/10 px-4 py-3 text-[color:var(--ob-sidebar-text,#e2e8f0)]">
+        <div className="truncate text-xs opacity-60">{me?.user.email}</div>
+        <button onClick={logout} className="mt-1 flex items-center gap-1 text-xs opacity-75 hover:opacity-100">
           <LogOut size={14} /> Sign out
         </button>
       </div>

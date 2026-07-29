@@ -1,9 +1,41 @@
 import {
   parseIif,
+  sectionCounts,
   toAccounts,
   toCustomers,
+  toEmployees,
+  toItems,
   toVendors,
 } from '../iif.logic';
+
+describe('toEmployees / toItems / sectionCounts', () => {
+  const IIF = [
+    '!EMP\tNAME\tEMAIL\tPHONE1',
+    'EMP\tJane Q Smith\tjane@x.test\t555-1000',
+    'EMP\tMadonna\t\t',
+    '!INVITEM\tNAME\tINVITEMTYPE\tDESC\tSALESPRICE',
+    'INVITEM\tConsulting\tSERV\tHourly consulting\t150.00',
+    'INVITEM\tWidget\tINVENTORY\t\t9.99',
+    '!TODO\tNAME',
+    'TODO\tCall bank',
+  ].join('\n');
+
+  it('splits employee names (last token = last name)', () => {
+    const emp = toEmployees(parseIif(IIF));
+    expect(emp[0]).toMatchObject({ firstName: 'Jane Q', lastName: 'Smith', email: 'jane@x.test' });
+    expect(emp[1]).toMatchObject({ firstName: 'Madonna', lastName: '' });
+  });
+
+  it('maps item types and prices', () => {
+    const items = toItems(parseIif(IIF));
+    expect(items[0]).toMatchObject({ name: 'Consulting', type: 'service', unitPrice: '150.00' });
+    expect(items[1]).toMatchObject({ name: 'Widget', type: 'product' });
+  });
+
+  it('reports every detected list, including unsupported ones', () => {
+    expect(sectionCounts(parseIif(IIF))).toMatchObject({ EMP: 2, INVITEM: 2, TODO: 1 });
+  });
+});
 
 const SAMPLE = [
   '!ACCNT\tNAME\tACCNTTYPE\tDESC\tACCNUM',

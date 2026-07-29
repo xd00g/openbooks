@@ -156,3 +156,77 @@ export function toCustomers(parsed: ParsedIif): IifParty[] {
 export function toVendors(parsed: ParsedIif): IifParty[] {
   return toParties(parsed.sections['VEND']);
 }
+
+export interface IifEmployee {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+}
+
+/** Split a QuickBooks full name into first/last (last token = last name). */
+function splitName(full: string): { firstName: string; lastName: string } {
+  const parts = full.trim().split(/\s+/);
+  if (parts.length <= 1) return { firstName: full.trim(), lastName: '' };
+  return { firstName: parts.slice(0, -1).join(' '), lastName: parts[parts.length - 1] };
+}
+
+export function toEmployees(parsed: ParsedIif): IifEmployee[] {
+  const section = parsed.sections['EMP'];
+  if (!section) return [];
+  const out: IifEmployee[] = [];
+  for (const row of section.rows) {
+    const name = pick(row, 'NAME');
+    if (!name) continue;
+    out.push({
+      ...splitName(name),
+      email: pick(row, 'EMAIL') || undefined,
+      phone: pick(row, 'PHONE1', 'PHONE') || undefined,
+    });
+  }
+  return out;
+}
+
+export interface IifItem {
+  name: string;
+  description?: string;
+  unitPrice?: string;
+  type: string;
+}
+
+const ITEM_TYPE_MAP: Record<string, string> = {
+  SERV: 'service',
+  INVENTORY: 'product',
+  PART: 'product',
+  NONINVENTORY: 'product',
+  GROUP: 'bundle',
+  ASSEMBLY: 'bundle',
+};
+
+export function toItems(parsed: ParsedIif): IifItem[] {
+  // QuickBooks item lists export under INVITEM (occasionally ITEM).
+  const section = parsed.sections['INVITEM'] ?? parsed.sections['ITEM'];
+  if (!section) return [];
+  const out: IifItem[] = [];
+  for (const row of section.rows) {
+    const name = pick(row, 'NAME');
+    if (!name) continue;
+    out.push({
+      name,
+      description: pick(row, 'DESC') || undefined,
+      unitPrice: pick(row, 'PRICE', 'SALESPRICE') || undefined,
+      type: ITEM_TYPE_MAP[pick(row, 'INVITEMTYPE').toUpperCase()] ?? 'service',
+    });
+  }
+  return out;
+}
+
+/** Row counts for EVERY section found in the file (incl. ones we don't import),
+ *  so the preview can show the user exactly what QuickBooks exported. */
+export function sectionCounts(parsed: ParsedIif): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [type, sec] of Object.entries(parsed.sections)) {
+    out[type] = sec.rows.length;
+  }
+  return out;
+}

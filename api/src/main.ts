@@ -1,10 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Full QuickBooks IIF exports (and other bulk imports) easily exceed Express's
+  // stock 100kb body limit, which surfaced as HTTP 413 "request entity too large".
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
 
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalPipes(
