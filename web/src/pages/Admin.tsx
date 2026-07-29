@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { date } from '../lib/format';
-import { Page, Card, Table, Button, Empty } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
 
 const PERMISSIONS = [
   '*',
@@ -21,7 +21,25 @@ const PERMISSIONS = [
   'report:view',
 ];
 
-type Tab = 'members' | 'roles' | 'audit' | 'system';
+type Tab = 'members' | 'users' | 'companies' | 'roles' | 'audit' | 'system';
+
+function AddMemberRow({ companyId, users, roles, onAdd }: { companyId: string; users: any[]; roles: any[]; onAdd: (u: string, c: string, r: string) => void }) {
+  const [u, setU] = useState('');
+  const [r, setR] = useState('');
+  return (
+    <div className="mt-2 flex items-center gap-2 text-sm">
+      <select value={u} onChange={(e) => setU(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1">
+        <option value="">Add user…</option>
+        {users.map((x) => <option key={x.id} value={x.id}>{x.email}</option>)}
+      </select>
+      <select value={r} onChange={(e) => setR(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1">
+        <option value="">Role…</option>
+        {roles.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+      <Button onClick={() => { if (u && r) { onAdd(u, companyId, r); setU(''); setR(''); } }} disabled={!u || !r}>Add</Button>
+    </div>
+  );
+}
 
 export default function Admin() {
   const { companyId, can } = useAuth();
@@ -52,6 +70,24 @@ export default function Admin() {
     onError: (e: any) => setErr(e.message),
   });
 
+  // ---- Organization-wide (cross-company) management ----
+  const orgUsers = useQuery({ queryKey: key('org-users'), enabled: !!companyId && can('user:manage') && (tab === 'users' || tab === 'companies'), queryFn: () => api.get('/admin/org/users') });
+  const orgCompanies = useQuery({ queryKey: key('org-companies'), enabled: !!companyId && can('user:manage') && (tab === 'users' || tab === 'companies'), queryFn: () => api.get('/admin/org/companies') });
+  const orgRoles = useQuery({ queryKey: key('org-roles'), enabled: !!companyId && can('user:manage'), queryFn: () => api.get('/admin/org/roles') });
+  const invalidateOrg = () => { qc.invalidateQueries({ queryKey: key('org-users') }); qc.invalidateQueries({ queryKey: key('org-companies') }); };
+
+  const [newUser, setNewUser] = useState({ email: '', fullName: '', password: '' });
+  const createUser = useMutation({
+    mutationFn: () => api.post('/admin/org/users', newUser),
+    onSuccess: () => { setNewUser({ email: '', fullName: '', password: '' }); invalidateOrg(); },
+    onError: (e: any) => setErr(e.message),
+  });
+  const resetPw = (u: any) => { const p = prompt(`New password for ${u.email} (min 8 chars):`); if (p) api.post(`/admin/org/users/${u.id}/reset-password`, { password: p }).then(() => setErr(`✓ Password reset for ${u.email}`)).catch((e) => setErr(e.message)); };
+  const toggleActive = (u: any) => api.patch(`/admin/org/users/${u.id}`, { isActive: !u.isActive }).then(invalidateOrg).catch((e) => setErr(e.message));
+  const assign = (userId: string, cId: string, roleId: string) => api.post('/admin/org/memberships', { userId, companyId: cId, roleId }).then(invalidateOrg).catch((e) => setErr(e.message));
+  const unassign = (userId: string, cId: string) => api.post('/admin/org/memberships/remove', { userId, companyId: cId }).then(invalidateOrg).catch((e) => setErr(e.message));
+  const [accessFor, setAccessFor] = useState<string | null>(null); // userId whose access modal is open
+
   if (!companyId) return <Page title="Admin"><Empty>Select a company.</Empty></Page>;
   if (!can('user:manage')) return <Page title="Admin"><Empty>You need the <code>user:manage</code> permission to administer this company.</Empty></Page>;
 
@@ -59,8 +95,8 @@ export default function Admin() {
     <Page title="Admin">
       {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
       <div className="mb-4 flex gap-2">
-        {(['members', 'roles', 'audit', ...(can('system:manage') ? ['system'] : [])] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${tab === t ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}>{t}</button>
+        {(['members', 'users', 'companies', 'roles', 'audit', ...(can('system:manage') ? ['system'] : [])] as Tab[]).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${tab === t ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}>{t === 'members' ? 'Members (this co.)' : t}</button>
         ))}
       </div>
 
@@ -99,6 +135,90 @@ export default function Admin() {
           </div>
         </>
       )}
+
+      {tab === 'users' && (
+        <>
+          <Card title="Create user">
+            <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
+              <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="email" className="rounded-md border border-slate-300 px-2 py-1" />
+              <input value={newUser.fullName} onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })} placeholder="Full name" className="rounded-md border border-slate-300 px-2 py-1" />
+              <input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="Password (min 8)" className="rounded-md border border-slate-300 px-2 py-1" />
+            </div>
+            <div className="mt-3"><Button onClick={() => createUser.mutate()} disabled={!newUser.email || newUser.password.length < 8}>Create user</Button></div>
+            <p className="mt-2 text-xs text-slate-400">Creates a global user. Grant them access to company files with “Manage access”.</p>
+          </Card>
+          <div className="mt-4">
+            <Table head={['Email', 'Name', 'Active', 'Company access', '']}>
+              {(orgUsers.data ?? []).map((u: any) => (
+                <tr key={u.id}>
+                  <td className="px-4 py-2 font-medium">{u.email}</td>
+                  <td className="px-4 py-2">{u.fullName || '—'}</td>
+                  <td className="px-4 py-2"><button onClick={() => toggleActive(u)} className="text-xs hover:underline">{u.isActive ? 'Active' : 'Inactive'}</button></td>
+                  <td className="px-4 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {u.memberships.map((m: any) => <span key={m.companyId} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{m.company}: {m.role}</span>)}
+                      {u.memberships.length === 0 && <span className="text-xs text-slate-400">none</span>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <span className="inline-flex gap-2">
+                      <Button variant="ghost" onClick={() => setAccessFor(u.id)}>Manage access</Button>
+                      <Button variant="ghost" onClick={() => resetPw(u)}>Reset password</Button>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {(orgUsers.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No users.</td></tr>}
+            </Table>
+          </div>
+        </>
+      )}
+
+      {tab === 'companies' && (
+        <div className="space-y-4">
+          {(orgCompanies.data ?? []).map((c: any) => (
+            <Card key={c.id} title={c.legalName}>
+              <div className="mb-2 text-xs text-slate-400">{c.baseCurrency} · created {date(c.createdAt)} · {c.members.length} member(s)</div>
+              <Table head={['User', 'Role', '']}>
+                {c.members.map((m: any) => (
+                  <tr key={m.userId}>
+                    <td className="px-4 py-2">{m.email}{m.fullName ? ` (${m.fullName})` : ''}</td>
+                    <td className="px-4 py-2">{m.role}</td>
+                    <td className="px-4 py-2 text-right"><button onClick={() => unassign(m.userId, c.id)} className="text-xs text-red-500 hover:underline">Remove</button></td>
+                  </tr>
+                ))}
+                {c.members.length === 0 && <tr><td colSpan={3} className="px-4 py-4 text-center text-xs text-slate-400">No one has access.</td></tr>}
+              </Table>
+              <AddMemberRow companyId={c.id} users={orgUsers.data ?? []} roles={orgRoles.data ?? []} onAdd={assign} />
+            </Card>
+          ))}
+          {(orgCompanies.data ?? []).length === 0 && <Empty>No companies.</Empty>}
+        </div>
+      )}
+
+      {accessFor && (() => {
+        const u = (orgUsers.data ?? []).find((x: any) => x.id === accessFor);
+        if (!u) return null;
+        return (
+          <Modal title={`Company access — ${u.email}`} onClose={() => setAccessFor(null)}>
+            <div className="space-y-2 text-sm">
+              {(orgCompanies.data ?? []).map((c: any) => {
+                const m = u.memberships.find((x: any) => x.companyId === c.id);
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-3">
+                    <span>{c.legalName}</span>
+                    <select value={m?.roleId ?? ''} onChange={(e) => { const rid = e.target.value; rid ? assign(u.id, c.id, rid) : unassign(u.id, c.id); }} className="rounded-md border border-slate-300 px-2 py-1">
+                      <option value="">No access</option>
+                      {(orgRoles.data ?? []).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex justify-end"><Button onClick={() => setAccessFor(null)}>Done</Button></div>
+          </Modal>
+        );
+      })()}
 
       {tab === 'roles' && (
         <>
