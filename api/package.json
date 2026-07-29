@@ -14,6 +14,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "db:constraints": "sh ../scripts/apply-sql-migrations.sh",
     "db:seed": "prisma db seed",
+    "backfill:encryption": "ts-node scripts/backfill-encryption.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -39,6 +40,7 @@
     "class-validator": "^0.14.1",
     "ioredis": "^5.4.1",
     "jose": "^5.9.0",
+    "nodemailer": "^6.9.14",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
@@ -48,6 +50,7 @@
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.0",
+    "@types/nodemailer": "^6.4.15",
     "embedded-postgres": "16.14.0-beta.17",
     "jest": "^29.7.0",
     "pg": "^8.12.0",

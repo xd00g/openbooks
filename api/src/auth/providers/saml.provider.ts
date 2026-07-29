@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { SAML, type SamlConfig } from '@node-saml/node-saml';
 import { AuthenticatedProfile } from './provider.interface';
 import { mapSamlAssertion } from './saml.mapping';
+import { SystemSettingsService } from '../system-settings.service';
 
 /**
  * SAML 2.0 (SP-initiated). Signature validation, canonicalization, and replay
@@ -13,16 +14,20 @@ import { mapSamlAssertion } from './saml.mapping';
  */
 @Injectable()
 export class SamlProvider {
+  constructor(private readonly settings: SystemSettingsService) {}
+
   get configured() {
-    return !!(process.env.SAML_ENTRY_POINT && process.env.SAML_CERT);
+    const c = this.settings.saml();
+    return !!(c.entryPoint && c.cert);
   }
 
   private client(): SAML {
+    const c = this.settings.saml();
     const config: SamlConfig = {
-      entryPoint: process.env.SAML_ENTRY_POINT,
-      issuer: process.env.SAML_ISSUER ?? 'openbooks',
-      idpCert: process.env.SAML_CERT ?? '',
-      callbackUrl: process.env.SAML_CALLBACK_URL ?? '',
+      entryPoint: c.entryPoint,
+      issuer: c.issuer,
+      idpCert: c.cert,
+      callbackUrl: c.callbackUrl,
       wantAssertionsSigned: true,
       wantAuthnResponseSigned: true,
     };

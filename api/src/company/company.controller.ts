@@ -19,6 +19,11 @@ export class CompanyController {
     return this.svc.get(company(cid));
   }
 
+  @Get('logo-url')
+  logoUrl(@Headers('x-company-id') cid: string) {
+    return this.svc.logoUrl(company(cid));
+  }
+
   @Patch()
   @RequirePermissions('company:manage')
   update(@Headers('x-company-id') cid: string, @Body() body: Record<string, unknown>) {

@@ -2,8 +2,11 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
+  Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
@@ -34,11 +37,36 @@ export class AccountsController {
     body: {
       code: string;
       name: string;
-      type: string;
       subtype: string;
+      type?: string;
       parentId?: string;
+      description?: string;
     },
   ) {
     return this.accounts.create(company(cid), body);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('account:manage')
+  update(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      code?: string;
+      name?: string;
+      subtype?: string;
+      parentId?: string | null;
+      description?: string;
+      isActive?: boolean;
+    },
+  ) {
+    return this.accounts.update(company(cid), id, body);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('account:manage')
+  remove(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.accounts.remove(company(cid), id);
   }
 }

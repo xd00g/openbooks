@@ -4,10 +4,13 @@ import { AccountsModule } from '../accounts/accounts.module';
 import { AdminPrismaService } from './admin-prisma.service';
 import { AuthService } from './auth.service';
 import { OnboardingService } from './onboarding.service';
+import { SystemSettingsService } from './system-settings.service';
+import { MailService } from './mail.service';
 import { OidcProvider } from './providers/oidc.provider';
 import { SamlProvider } from './providers/saml.provider';
 import { AuthController } from './auth.controller';
 import { OnboardingController } from './onboarding.controller';
+import { SystemSettingsController } from './system-settings.controller';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 
@@ -18,16 +21,18 @@ import { PermissionsGuard } from './guards/permissions.guard';
  */
 @Module({
   imports: [AccountsModule],
-  controllers: [AuthController, OnboardingController],
+  controllers: [AuthController, OnboardingController, SystemSettingsController],
   providers: [
     AdminPrismaService,
     AuthService,
     OnboardingService,
+    SystemSettingsService,
+    MailService,
     OidcProvider,
     SamlProvider,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [AuthService, AdminPrismaService],
+  exports: [AuthService, AdminPrismaService, SystemSettingsService],
 })
 export class AuthModule {}

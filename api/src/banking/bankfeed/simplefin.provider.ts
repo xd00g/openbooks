@@ -1,5 +1,13 @@
 import { BankFeedProvider, NormalizedTxn } from './provider.interface';
 
+export interface SimpleFinAccountInfo {
+  id: string;
+  name: string;
+  org?: string;
+  currency?: string;
+  balance?: string;
+}
+
 /**
  * SimpleFIN provider (docs/DESIGN.md §9). Two-step model:
  *   1. Claim a one-time setup token -> an access URL (with basic-auth creds).
@@ -20,6 +28,31 @@ export class SimpleFinProvider implements BankFeedProvider {
       throw new Error(`SimpleFIN claim failed: ${res.status}`);
     }
     return (await res.text()).trim(); // the access URL
+  }
+
+  /** List the accounts the access URL can see (balances only, no txns) so the
+   *  user can map each one to a GL account before linking. */
+  async fetchAccounts(accessUrl: string): Promise<SimpleFinAccountInfo[]> {
+    const url = new URL(`${accessUrl.replace(/\/$/, '')}/accounts`);
+    url.searchParams.set('balances-only', '1');
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error(`SimpleFIN accounts fetch failed: ${res.status}`);
+    const data = (await res.json()) as {
+      accounts?: {
+        id: string;
+        name?: string;
+        currency?: string;
+        balance?: string;
+        org?: { name?: string; domain?: string };
+      }[];
+    };
+    return (data.accounts ?? []).map((a) => ({
+      id: a.id,
+      name: a.name ?? a.id,
+      org: a.org?.name ?? a.org?.domain,
+      currency: a.currency,
+      balance: a.balance,
+    }));
   }
 
   async fetchTransactions(args: {

@@ -26,6 +26,7 @@ interface AuthState {
   setCompany: (id: string) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  refresh: () => Promise<void>;
   can: (perm: string) => boolean;
 }
 
@@ -102,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyStore.clear();
         setMe(null);
         setCompanyId(null);
+      },
+      refresh: async () => {
+        await loadMe();
       },
       can: (perm: string) => {
         const m = me?.memberships.find((x) => x.companyId === companyId);

@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, startOfYear, today } from '../lib/format';
-import { Page, Card, Table, Empty } from '../components/ui';
+import { downloadCsv, reportToRows } from '../lib/export';
+import { Page, Card, Table, Button, Empty } from '../components/ui';
 
 type R = 'trial-balance' | 'income-statement' | 'balance-sheet' | 'ar-aging' | 'ap-aging';
 const TABS: { key: R; label: string }[] = [
@@ -29,9 +30,23 @@ export default function Reports() {
 
   if (!companyId) return <Page title="Reports"><Empty>Select a company.</Empty></Page>;
 
+  const exportCsv = () => {
+    if (!q.data) return;
+    const period = tab === 'income-statement' ? `${from}_to_${asOf}` : asOf;
+    downloadCsv(`${tab}_${period}.csv`, reportToRows(tab, q.data));
+  };
+
   return (
-    <Page title="Reports">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <Page
+      title="Reports"
+      actions={
+        <span className="no-print flex gap-2">
+          <Button variant="ghost" onClick={exportCsv} disabled={!q.data}>Export CSV</Button>
+          <Button variant="ghost" onClick={() => window.print()} disabled={!q.data}>Print / PDF</Button>
+        </span>
+      }
+    >
+      <div className="no-print mb-4 flex flex-wrap items-center gap-2">
         {TABS.map((t) => (
           <button
             key={t.key}

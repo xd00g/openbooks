@@ -34,10 +34,11 @@ export function Button({ children, onClick, variant = 'primary', type = 'button'
   children: ReactNode; onClick?: () => void; variant?: 'primary' | 'ghost'; type?: 'button' | 'submit'; disabled?: boolean;
 }) {
   const cls = variant === 'primary'
-    ? 'bg-slate-900 text-white hover:bg-slate-800'
+    ? 'text-[color:var(--ob-accent-text,#fff)] hover:opacity-90'
     : 'border border-slate-300 text-slate-700 hover:bg-slate-50';
+  const style = variant === 'primary' ? { backgroundColor: 'var(--ob-accent, #0f172a)' } : undefined;
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${cls}`}>
+    <button type={type} onClick={onClick} disabled={disabled} style={style} className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${cls}`}>
       {children}
     </button>
   );

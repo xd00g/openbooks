@@ -7,6 +7,7 @@ import {
   generateState,
 } from '../crypto/pkce';
 import { AuthenticatedProfile } from './provider.interface';
+import { SystemSettingsService } from '../system-settings.service';
 
 interface Discovery {
   issuer: string;
@@ -27,20 +28,27 @@ export class OidcProvider {
   private readonly log = new Logger(OidcProvider.name);
   private discovery?: Discovery;
   private jwks?: ReturnType<typeof createRemoteJWKSet>;
+  private discoveredFor?: string;
+
+  constructor(private readonly settings: SystemSettingsService) {}
 
   private get issuer() {
-    return process.env.OIDC_ISSUER_URL ?? '';
+    return this.settings.oidc().issuerUrl;
   }
   get configured() {
-    return !!(this.issuer && process.env.OIDC_CLIENT_ID);
+    const c = this.settings.oidc();
+    return !!(c.issuerUrl && c.clientId);
   }
 
   private async discover(): Promise<Discovery> {
-    if (this.discovery) return this.discovery;
+    // Re-discover if the configured issuer changed (config can be edited at runtime).
+    if (this.discovery && this.discoveredFor === this.issuer) return this.discovery;
     const url = `${this.issuer.replace(/\/$/, '')}/.well-known/openid-configuration`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`OIDC discovery failed: ${res.status}`);
     this.discovery = (await res.json()) as Discovery;
+    this.discoveredFor = this.issuer;
+    this.jwks = undefined; // force a JWKS refresh for the new issuer
     return this.discovery;
   }
 
@@ -58,13 +66,14 @@ export class OidcProvider {
     nonce: string;
   }> {
     const d = await this.discover();
+    const c = this.settings.oidc();
     const codeVerifier = generateCodeVerifier();
     const state = generateState();
     const nonce = generateNonce();
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: process.env.OIDC_CLIENT_ID ?? '',
-      redirect_uri: process.env.OIDC_REDIRECT_URI ?? '',
+      client_id: c.clientId,
+      redirect_uri: c.redirectUri,
       scope: 'openid email profile groups',
       state,
       nonce,
@@ -81,12 +90,13 @@ export class OidcProvider {
     nonce: string,
   ): Promise<AuthenticatedProfile> {
     const d = await this.discover();
+    const c = this.settings.oidc();
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: process.env.OIDC_REDIRECT_URI ?? '',
-      client_id: process.env.OIDC_CLIENT_ID ?? '',
-      client_secret: process.env.OIDC_CLIENT_SECRET ?? '',
+      redirect_uri: c.redirectUri,
+      client_id: c.clientId,
+      client_secret: c.clientSecret,
       code_verifier: codeVerifier,
     });
     const res = await fetch(d.token_endpoint, {
@@ -103,7 +113,7 @@ export class OidcProvider {
       const jwks = await this.getJwks();
       ({ payload } = await jwtVerify(tokens.id_token, jwks, {
         issuer: d.issuer,
-        audience: process.env.OIDC_CLIENT_ID,
+        audience: c.clientId,
       }));
     } catch (e) {
       this.log.warn(`id_token verification failed: ${(e as Error).message}`);
