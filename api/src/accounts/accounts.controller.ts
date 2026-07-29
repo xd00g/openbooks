@@ -34,6 +34,15 @@ export class AccountsController {
     return this.accounts.register(company(cid), id);
   }
 
+  @Post(':id/transactions')
+  addTransaction(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: { date: string; amount: string; direction: 'inflow' | 'outflow'; categoryAccountId: string; memo?: string },
+  ) {
+    return this.accounts.createTransaction(company(cid), id, body);
+  }
+
   @Post()
   @RequirePermissions('account:manage')
   create(
