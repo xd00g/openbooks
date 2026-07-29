@@ -86,7 +86,7 @@ export default function Expenses() {
   const previewParty = selectedVendor ? {
     name: selectedVendor.companyName || selectedVendor.displayName,
     sub: [
-      selectedVendor.companyName ? selectedVendor.displayName : null,
+      selectedVendor.companyName && selectedVendor.companyName !== selectedVendor.displayName ? selectedVendor.displayName : null,
       selectedVendor.email,
       selectedVendor.address?.line1,
       [selectedVendor.address?.city, selectedVendor.address?.region, selectedVendor.address?.postalCode].filter(Boolean).join(', ') || null,

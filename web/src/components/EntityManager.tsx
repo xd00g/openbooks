@@ -3,11 +3,12 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Page, Table, Button, Empty, Modal } from './ui';
+import { formatPhone } from '../lib/format';
 
 export interface FieldDef {
   key: string;
   label: string;
-  type?: 'text' | 'select' | 'checkbox' | 'date';
+  type?: 'text' | 'select' | 'checkbox' | 'date' | 'phone';
   options?: { value: string; label: string }[];
   writeOnly?: boolean; // never populated from the row (e.g. encrypted SSN); only sent if filled
   fromRow?: (row: any) => string; // custom value when editing (e.g. derive % from a decimal)
@@ -136,7 +137,8 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
                 ) : fd.type === 'checkbox' ? (
                   <div className="mt-1"><input type="checkbox" checked={!!form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.checked })} /></div>
                 ) : (
-                  <input type={fd.type === 'date' ? 'date' : 'text'} value={form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.value })}
+                  <input type={fd.type === 'date' ? 'date' : fd.type === 'phone' ? 'tel' : 'text'} value={form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.value })}
+                    onBlur={fd.type === 'phone' ? (e) => setForm({ ...form, [fd.key]: formatPhone(e.target.value) }) : undefined}
                     placeholder={fd.writeOnly && form.id ? '•••• (leave blank to keep)' : ''}
                     className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
                 )}

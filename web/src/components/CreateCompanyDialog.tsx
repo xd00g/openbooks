@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Modal, Button } from './ui';
+import { formatPhone } from '../lib/format';
 
 /**
  * Create a new company. Works both for a brand-new user with no memberships
@@ -131,7 +132,9 @@ export default function CreateCompanyDialog({
             ] as [keyof typeof form, string][]).map(([k, label]) => (
               <label key={k} className="block">
                 <span className="mb-1 block text-xs text-slate-500">{label}</span>
-                <input value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} className={field} />
+                <input type={k === 'phone' ? 'tel' : 'text'} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                  onBlur={k === 'phone' ? (e) => setForm({ ...form, phone: formatPhone(e.target.value) }) : undefined}
+                  className={field} />
               </label>
             ))}
             <label className="block">

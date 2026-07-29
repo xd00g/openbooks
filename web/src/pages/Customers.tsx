@@ -1,4 +1,5 @@
 import EntityManager from '../components/EntityManager';
+import { formatPhone } from '../lib/format';
 
 export default function Customers() {
   return (
@@ -12,16 +13,16 @@ export default function Customers() {
         { key: 'companyName', label: 'Company' },
         { key: 'contactName', label: 'Contact' },
         { key: 'email', label: 'Email' },
-        { key: 'phone', label: 'Phone' },
+        { key: 'phone', label: 'Phone', render: (r) => formatPhone(r.phone) },
       ],
       fields: [
         { key: 'displayName', label: 'Display name *' },
         { key: 'companyName', label: 'Company' },
         { key: 'contactName', label: 'Contact person' },
         { key: 'email', label: 'Email' },
-        { key: 'phone', label: 'Phone' },
-        { key: 'mobile', label: 'Mobile' },
-        { key: 'fax', label: 'Fax' },
+        { key: 'phone', label: 'Phone', type: 'phone' },
+        { key: 'mobile', label: 'Mobile', type: 'phone' },
+        { key: 'fax', label: 'Fax', type: 'phone' },
         { key: 'website', label: 'Website' },
         { key: 'notes', label: 'Notes', full: true },
       ],
