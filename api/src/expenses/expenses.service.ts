@@ -162,6 +162,37 @@ export class ExpensesService {
     });
   }
 
+  /** Delete a DRAFT bill (no GL impact yet). Posted bills must be voided. */
+  deleteBill(companyId: string, id: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const bill = await tx.bill.findFirst({ where: { id } });
+      if (!bill) throw new NotFoundException('Bill not found.');
+      if (bill.status !== 'draft') {
+        throw new BadRequestException('Only draft bills can be deleted; void a posted bill instead.');
+      }
+      await tx.bill.delete({ where: { id } });
+      return { deleted: true };
+    });
+  }
+
+  /** Void a posted bill by reversing its journal entry (audit-preserving). */
+  voidBill(companyId: string, id: string, userId?: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const bill = await tx.bill.findFirst({ where: { id } });
+      if (!bill) throw new NotFoundException('Bill not found.');
+      if (bill.status === 'void') throw new BadRequestException('Bill is already void.');
+      if (bill.status === 'draft') throw new BadRequestException('Delete draft bills instead of voiding.');
+      if (Number(bill.amountPaid) > 0) {
+        throw new BadRequestException('Unapply payments before voiding this bill.');
+      }
+      if (bill.journalEntryId) {
+        await this.ledger.reverseEntry(tx, companyId, bill.journalEntryId, new Date(), userId);
+      }
+      await tx.bill.update({ where: { id }, data: { status: 'void' } });
+      return { voided: true };
+    });
+  }
+
   listBills(companyId: string) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.bill.findMany({ orderBy: { issueDate: 'desc' } }),

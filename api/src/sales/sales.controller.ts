@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -64,6 +65,16 @@ export class SalesController {
   @Post('invoices/:id/finalize')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.finalizeInvoice(company(cid), id);
+  }
+
+  @Post('invoices/:id/void')
+  voidInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.sales.voidInvoice(company(cid), id);
+  }
+
+  @Delete('invoices/:id')
+  deleteInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.sales.deleteInvoice(company(cid), id);
   }
 
   @Get('invoices/:id')

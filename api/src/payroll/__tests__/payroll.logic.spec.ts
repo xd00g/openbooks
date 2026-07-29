@@ -1,8 +1,27 @@
 import {
   PayrollError,
+  computeGross,
   computeRunTotals,
   normalizePayrollLine,
 } from '../payroll.logic';
+
+describe('computeGross', () => {
+  it('hourly = rate x hours (exact)', () => {
+    expect(computeGross({ payType: 'hourly', payRate: '27.50', hours: '80' })).toBe('2200.0000');
+  });
+  it('hourly with fractional hours', () => {
+    expect(computeGross({ payType: 'hourly', payRate: '20', hours: '10.25' })).toBe('205.0000');
+  });
+  it('salary = annual / periods (default 26 biweekly)', () => {
+    expect(computeGross({ payType: 'salary', payRate: '78000' })).toBe('3000.0000');
+  });
+  it('salary honors periodsPerYear (24 semimonthly)', () => {
+    expect(computeGross({ payType: 'salary', payRate: '96000', periodsPerYear: 24 })).toBe('4000.0000');
+  });
+  it('defaults to hourly with zero hours -> 0', () => {
+    expect(computeGross({ payRate: '50' })).toBe('0.0000');
+  });
+});
 
 describe('normalizePayrollLine', () => {
   it('computes net when omitted', () => {

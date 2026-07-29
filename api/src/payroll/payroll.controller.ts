@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -66,6 +67,7 @@ export class PayrollController {
       payDate: string;
       periodStart: string;
       periodEnd: string;
+      periodsPerYear?: number;
       lines: PayrollLineInput[];
     },
   ) {
@@ -96,5 +98,17 @@ export class PayrollController {
   @RequirePermissions('payroll:run')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.payroll.finalizeRun(company(cid), id);
+  }
+
+  @Post('runs/:id/void')
+  @RequirePermissions('payroll:run')
+  voidRun(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.payroll.voidRun(company(cid), id);
+  }
+
+  @Delete('runs/:id')
+  @RequirePermissions('payroll:run')
+  deleteRun(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.payroll.deleteRun(company(cid), id);
   }
 }

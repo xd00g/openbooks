@@ -52,6 +52,8 @@ export default function Sales() {
   });
 
   const finalize = (id: string) => wrap(api.post(`/sales/invoices/${id}/finalize`));
+  const voidInvoice = (id: string) => { if (confirm('Void this invoice? A reversing entry will be posted.')) wrap(api.post(`/sales/invoices/${id}/void`)); };
+  const deleteInvoice = (id: string) => { if (confirm('Delete this draft invoice?')) wrap(api.del(`/sales/invoices/${id}`)); };
   const receive = (i: any) => wrap(api.post('/sales/payments', {
     customerId: i.customerId, paymentDate: today(),
     allocations: [{ invoiceId: i.id, amount: String(i.balanceDue) }],
@@ -116,8 +118,12 @@ export default function Sales() {
               <span className="inline-flex gap-2">
                 <Button variant="ghost" onClick={() => setFilesFor(i.id)}>Files</Button>
                 {i.status === 'draft' && <Button variant="ghost" onClick={() => finalize(i.id)}>Finalize</Button>}
+                {i.status === 'draft' && <Button variant="ghost" onClick={() => deleteInvoice(i.id)}>Delete</Button>}
                 {(i.status === 'open' || i.status === 'partially_paid') && Number(i.balanceDue) > 0 && (
                   <Button variant="ghost" onClick={() => receive(i)}>Receive</Button>
+                )}
+                {i.status === 'open' && Number(i.amountPaid ?? 0) === 0 && (
+                  <Button variant="ghost" onClick={() => voidInvoice(i.id)}>Void</Button>
                 )}
               </span>
             </td>

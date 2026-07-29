@@ -148,6 +148,37 @@ export class SalesService {
     return this.invoicePosting.post(companyId, invoiceId, userId);
   }
 
+  /** Delete a DRAFT invoice (no GL impact yet). Posted invoices must be voided. */
+  deleteInvoice(companyId: string, id: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const inv = await tx.invoice.findFirst({ where: { id } });
+      if (!inv) throw new NotFoundException('Invoice not found.');
+      if (inv.status !== 'draft') {
+        throw new BadRequestException('Only draft invoices can be deleted; void a posted invoice instead.');
+      }
+      await tx.invoice.delete({ where: { id } });
+      return { deleted: true };
+    });
+  }
+
+  /** Void a posted invoice by reversing its journal entry (audit-preserving). */
+  voidInvoice(companyId: string, id: string, userId?: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const inv = await tx.invoice.findFirst({ where: { id } });
+      if (!inv) throw new NotFoundException('Invoice not found.');
+      if (inv.status === 'void') throw new BadRequestException('Invoice is already void.');
+      if (inv.status === 'draft') throw new BadRequestException('Delete draft invoices instead of voiding.');
+      if (Number(inv.amountPaid) > 0) {
+        throw new BadRequestException('Unapply payments before voiding this invoice.');
+      }
+      if (inv.journalEntryId) {
+        await this.ledger.reverseEntry(tx, companyId, inv.journalEntryId, new Date(), userId);
+      }
+      await tx.invoice.update({ where: { id }, data: { status: 'void' } });
+      return { voided: true };
+    });
+  }
+
   getInvoice(companyId: string, id: string) {
     return this.prisma.forCompany(companyId, async (tx) => {
       const inv = await tx.invoice.findFirst({

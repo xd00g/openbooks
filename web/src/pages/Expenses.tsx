@@ -49,6 +49,8 @@ export default function Expenses() {
   });
 
   const finalize = (id: string) => wrap(api.post(`/expenses/bills/${id}/finalize`));
+  const voidBill = (id: string) => { if (confirm('Void this bill? A reversing entry will be posted.')) wrap(api.post(`/expenses/bills/${id}/void`)); };
+  const deleteBill = (id: string) => { if (confirm('Delete this draft bill?')) wrap(api.del(`/expenses/bills/${id}`)); };
   const pay = (b: any) => {
     if (!bankAccounts[0]) return setErr('Create a bank account first.');
     wrap(api.post('/expenses/payments', {
@@ -117,6 +119,10 @@ export default function Expenses() {
               <span className="inline-flex gap-2">
                 <Button variant="ghost" onClick={() => setFilesFor(b.id)}>Files</Button>
                 {b.status === 'draft' && <Button variant="ghost" onClick={() => finalize(b.id)}>Finalize</Button>}
+                {b.status === 'draft' && <Button variant="ghost" onClick={() => deleteBill(b.id)}>Delete</Button>}
+                {b.status === 'open' && Number(b.amountPaid ?? 0) === 0 && (
+                  <Button variant="ghost" onClick={() => voidBill(b.id)}>Void</Button>
+                )}
                 {(b.status === 'open' || b.status === 'partially_paid') && Number(b.balanceDue) > 0 && (
                   <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
                 )}

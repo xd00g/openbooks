@@ -12,9 +12,33 @@ export class PayrollError extends Error {
   }
 }
 
+export interface GrossInput {
+  payType?: string | null; // 'hourly' | 'salary'
+  payRate?: string | null; // hourly rate, or annual salary
+  hours?: string | null; // hours worked this period (hourly)
+  periodsPerYear?: number; // salary pay periods/year (default 26 = biweekly)
+}
+
+/**
+ * Compute one pay period's gross from an employee's pay setup.
+ *   hourly -> payRate * hours          (exact)
+ *   salary -> annual payRate / periods (rounded to cents)
+ */
+export function computeGross(input: GrossInput): string {
+  const rate = Money.of(input.payRate ?? '0');
+  const type = (input.payType ?? 'hourly').toLowerCase();
+  if (type === 'salary') {
+    const periods =
+      input.periodsPerYear && input.periodsPerYear > 0 ? input.periodsPerYear : 26;
+    return rate.divInt(periods).toString();
+  }
+  return rate.times(input.hours ?? '0').toString();
+}
+
 export interface PayrollLineInput {
   employeeId: string;
-  gross: string;
+  gross?: string; // optional when `hours` (hourly) or a salaried employee lets us compute it
+  hours?: string; // hours worked this period (hourly employees)
   employeeTaxes?: string;
   employerTaxes?: string;
   deductions?: string;
@@ -38,7 +62,7 @@ export interface NormalizedPayrollLine {
 export function normalizePayrollLine(
   input: PayrollLineInput,
 ): NormalizedPayrollLine {
-  const gross = Money.of(input.gross);
+  const gross = Money.of(input.gross ?? '0');
   const employeeTaxes = Money.of(input.employeeTaxes ?? '0');
   const employerTaxes = Money.of(input.employerTaxes ?? '0');
   const deductions = Money.of(input.deductions ?? '0');
