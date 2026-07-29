@@ -41,3 +41,7 @@ coverage/
 
 # deploy-time secrets (app-role/admin passwords)
 .deploy-secrets
+
+# database backups
+backup-*.sql.gz
+*.sql.gz
