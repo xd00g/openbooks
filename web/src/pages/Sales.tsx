@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, today, parseAmount, cleanAmount } from '../lib/format';
-import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal, Banner, SearchInput, toggleSort, type SortState } from '../components/ui';
 import Attachments from '../components/Attachments';
 import DocumentPreview from '../components/DocumentPreview';
 
@@ -13,6 +13,8 @@ export default function Sales() {
   const key = (k: string) => [k, companyId];
   const [err, setErr] = useState('');
   const [filesFor, setFilesFor] = useState<string | null>(null);
+  const [invQ, setInvQ] = useState('');
+  const [invSort, setInvSort] = useState<SortState | null>(null);
 
   const customers = useQuery({ queryKey: key('customers'), enabled: !!companyId, queryFn: () => api.get('/sales/customers') });
   const invoices = useQuery({ queryKey: key('invoices'), enabled: !!companyId, queryFn: () => api.get('/sales/invoices') });
@@ -123,6 +125,25 @@ export default function Sales() {
     amount: lineTotal(l),
   }));
 
+  const customerName = (id: string) => (customers.data ?? []).find((c: any) => c.id === id)?.displayName ?? '—';
+  const invoiceRows = (() => {
+    let r = (invoices.data ?? []).map((i: any) => ({ ...i, customerName: customerName(i.customerId) }));
+    if (invQ.trim()) {
+      const needle = invQ.trim().toLowerCase();
+      r = r.filter((i: any) => [i.number, i.customerName, i.status].some((v) => String(v ?? '').toLowerCase().includes(needle)));
+    }
+    if (invSort) {
+      const key = invSort.key;
+      r = [...r].sort((a: any, b: any) => {
+        const va = key === 'total' || key === 'balanceDue' ? Number(a[key]) : a[key];
+        const vb = key === 'total' || key === 'balanceDue' ? Number(b[key]) : b[key];
+        const cmp = va > vb ? 1 : va < vb ? -1 : 0;
+        return invSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return r;
+  })();
+
   return (
     <Page title="Sales">
       <Banner text={err} />
@@ -211,12 +232,20 @@ export default function Sales() {
         />
       </div>
 
-      <div className="mb-2 text-sm font-medium text-slate-600">Invoices</div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-sm font-medium text-slate-600">Invoices</div>
+        <SearchInput value={invQ} onChange={setInvQ} placeholder="Search invoices…" />
+      </div>
       <div className="max-h-[440px] overflow-y-auto rounded-xl">
-        <Table head={['Number', 'Status', 'Total', 'Balance', '']}>
-          {(invoices.data ?? []).map((i: any) => (
+        <Table
+          head={[{ label: 'Number', key: 'number' }, { label: 'Customer', key: 'customerName' }, { label: 'Status', key: 'status' }, { label: 'Total', key: 'total' }, { label: 'Balance', key: 'balanceDue' }, '']}
+          sort={invSort}
+          onSort={(k) => setInvSort((s) => toggleSort(s, k))}
+        >
+          {invoiceRows.map((i: any) => (
             <tr key={i.id}>
               <td className="px-4 py-2 font-medium">{i.number}</td>
+              <td className="px-4 py-2">{i.customerName}</td>
               <td className="px-4 py-2 capitalize text-slate-500">{i.status.replace(/_/g, ' ')}</td>
               <td className="px-4 py-2 text-right">{money(i.total, i.currency)}</td>
               <td className="px-4 py-2 text-right">{money(i.balanceDue, i.currency)}</td>
@@ -241,8 +270,8 @@ export default function Sales() {
               </td>
             </tr>
           ))}
-          {(invoices.data ?? []).length === 0 && (
-            <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No invoices yet.</td></tr>
+          {invoiceRows.length === 0 && (
+            <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">{invQ.trim() ? 'No matches.' : 'No invoices yet.'}</td></tr>
           )}
         </Table>
       </div>

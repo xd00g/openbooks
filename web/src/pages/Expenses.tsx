@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, today, parseAmount, cleanAmount } from '../lib/format';
-import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal, Banner, SearchInput, toggleSort, type SortState } from '../components/ui';
 import Attachments from '../components/Attachments';
 import DocumentPreview from '../components/DocumentPreview';
 
@@ -13,6 +13,8 @@ export default function Expenses() {
   const key = (k: string) => [k, companyId];
   const [err, setErr] = useState('');
   const [filesFor, setFilesFor] = useState<string | null>(null);
+  const [billQ, setBillQ] = useState('');
+  const [billSort, setBillSort] = useState<SortState | null>(null);
 
   const vendors = useQuery({ queryKey: key('vendors'), enabled: !!companyId, queryFn: () => api.get('/expenses/vendors') });
   const bills = useQuery({ queryKey: key('bills'), enabled: !!companyId, queryFn: () => api.get('/expenses/bills') });
@@ -100,6 +102,25 @@ export default function Expenses() {
     amount: parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'),
   }));
 
+  const vendorName = (id: string) => (vendors.data ?? []).find((v: any) => v.id === id)?.displayName ?? '—';
+  const billRows = (() => {
+    let r = (bills.data ?? []).map((b: any) => ({ ...b, vendorName: vendorName(b.vendorId) }));
+    if (billQ.trim()) {
+      const needle = billQ.trim().toLowerCase();
+      r = r.filter((b: any) => [b.number, b.vendorName, b.status].some((v) => String(v ?? '').toLowerCase().includes(needle)));
+    }
+    if (billSort) {
+      const key = billSort.key;
+      r = [...r].sort((a: any, b: any) => {
+        const va = key === 'total' || key === 'balanceDue' ? Number(a[key]) : a[key];
+        const vb = key === 'total' || key === 'balanceDue' ? Number(b[key]) : b[key];
+        const cmp = va > vb ? 1 : va < vb ? -1 : 0;
+        return billSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return r;
+  })();
+
   return (
     <Page title="Expenses">
       <Banner text={err} />
@@ -175,12 +196,20 @@ export default function Expenses() {
         />
       </div>
 
-      <div className="mb-2 text-sm font-medium text-slate-600">Bills</div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-sm font-medium text-slate-600">Bills</div>
+        <SearchInput value={billQ} onChange={setBillQ} placeholder="Search bills…" />
+      </div>
       <div className="max-h-[440px] overflow-y-auto rounded-xl">
-        <Table head={['Vendor ref', 'Status', 'Total', 'Balance', '']}>
-          {(bills.data ?? []).map((b: any) => (
+        <Table
+          head={[{ label: 'Vendor ref', key: 'number' }, { label: 'Vendor', key: 'vendorName' }, { label: 'Status', key: 'status' }, { label: 'Total', key: 'total' }, { label: 'Balance', key: 'balanceDue' }, '']}
+          sort={billSort}
+          onSort={(k) => setBillSort((s) => toggleSort(s, k))}
+        >
+          {billRows.map((b: any) => (
             <tr key={b.id}>
               <td className="px-4 py-2 font-medium">{b.number || '—'}</td>
+              <td className="px-4 py-2">{b.vendorName}</td>
               <td className="px-4 py-2 capitalize text-slate-500">{b.status.replace(/_/g, ' ')}</td>
               <td className="px-4 py-2 text-right">{money(b.total, b.currency)}</td>
               <td className="px-4 py-2 text-right">{money(b.balanceDue, b.currency)}</td>
@@ -203,8 +232,8 @@ export default function Expenses() {
               </td>
             </tr>
           ))}
-          {(bills.data ?? []).length === 0 && (
-            <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No bills yet.</td></tr>
+          {billRows.length === 0 && (
+            <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">{billQ.trim() ? 'No matches.' : 'No bills yet.'}</td></tr>
           )}
         </Table>
       </div>

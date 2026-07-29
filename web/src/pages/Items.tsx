@@ -13,7 +13,7 @@ export default function Items() {
         { key: 'sku', label: 'SKU' },
         { key: 'type', label: 'Type' },
         { key: 'description', label: 'Description' },
-        { key: 'unitPrice', label: 'Price', render: (r) => (r.unitPrice ? money(r.unitPrice) : '—') },
+        { key: 'unitPrice', label: 'Price', render: (r) => (r.unitPrice ? money(r.unitPrice) : '—'), sortValue: (r: any) => Number(r.unitPrice ?? 0) },
       ],
       fields: [
         { key: 'name', label: 'Name *' },

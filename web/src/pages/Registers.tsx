@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, date, today } from '../lib/format';
-import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal, Banner, SearchInput, toggleSort, type SortState } from '../components/ui';
 import Attachments from '../components/Attachments';
 
 const MONEY_SUBTYPES = ['bank', 'credit_card', 'undeposited_funds'];
@@ -18,6 +18,8 @@ export default function Registers() {
   const [showAll, setShowAll] = useState(false);
   const [receiptFor, setReceiptFor] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  const [txQ, setTxQ] = useState('');
+  const [txSort, setTxSort] = useState<SortState | null>(null);
   const emptyTx = { date: today(), direction: 'outflow', amount: '', categoryAccountId: '', memo: '' };
   const [tx, setTx] = useState<typeof emptyTx | null>(null);
 
@@ -78,6 +80,24 @@ export default function Registers() {
     .slice()
     .sort((a: any, b: any) => a.code.localeCompare(b.code));
 
+  const regRows = (() => {
+    let r = reg.data?.rows ?? [];
+    if (txQ.trim()) {
+      const needle = txQ.trim().toLowerCase();
+      r = r.filter((row: any) => [row.memo, row.source].some((v: any) => String(v ?? '').toLowerCase().includes(needle)));
+    }
+    if (txSort) {
+      const key = txSort.key;
+      r = [...r].sort((a: any, b: any) => {
+        const va = ['debit', 'credit', 'balance'].includes(key) ? Number(a[key]) : a[key];
+        const vb = ['debit', 'credit', 'balance'].includes(key) ? Number(b[key]) : b[key];
+        const cmp = va > vb ? 1 : va < vb ? -1 : 0;
+        return txSort.dir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return r;
+  })();
+
   return (
     <Page title="Account Registers">
       <Banner text={err} />
@@ -123,8 +143,13 @@ export default function Registers() {
 
       {acctId && (
         <div className="mt-4">
-          <Table head={['Date', 'Description', 'Source', 'Debit', 'Credit', 'Balance', '']}>
-            {(reg.data?.rows ?? []).map((r: any) => (
+          <div className="mb-2 flex justify-end"><SearchInput value={txQ} onChange={setTxQ} placeholder="Search transactions…" /></div>
+          <Table
+            head={[{ label: 'Date', key: 'date' }, { label: 'Description', key: 'memo' }, { label: 'Source', key: 'source' }, { label: 'Debit', key: 'debit' }, { label: 'Credit', key: 'credit' }, { label: 'Balance', key: 'balance' }, '']}
+            sort={txSort}
+            onSort={(k) => setTxSort((s) => toggleSort(s, k))}
+          >
+            {regRows.map((r: any) => (
               <tr key={r.id}>
                 <td className="px-4 py-2 whitespace-nowrap">{date(r.date)}</td>
                 <td className="px-4 py-2">{r.memo || '—'}</td>
@@ -135,7 +160,7 @@ export default function Registers() {
                 <td className="px-4 py-2 text-right"><Button variant="ghost" onClick={() => setReceiptFor(r.journalEntryId)}>Receipt</Button></td>
               </tr>
             ))}
-            {reg.data && reg.data.rows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">No posted activity yet — add a transaction to get started.</td></tr>}
+            {reg.data && regRows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">{txQ.trim() ? 'No matches.' : 'No posted activity yet — add a transaction to get started.'}</td></tr>}
           </Table>
         </div>
       )}
