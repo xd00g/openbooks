@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, date, today, cleanAmount } from '../lib/format';
-import { Page, Card, Table, Button, Empty } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Banner } from '../components/ui';
 
 /** Vendor statement: full bill + payment history with a running balance, and
  *  a multi-bill "Record payment" flow (pay several open bills in one check/ACH). */
@@ -46,7 +46,7 @@ export default function VendorStatements() {
 
   return (
     <Page title="Vendor Statements">
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
       <Card>
         <select value={vendorId} onChange={(e) => { setVendorId(e.target.value); setPay(null); }} className="w-80 rounded-md border border-slate-300 px-2 py-1.5 text-sm">
           <option value="">Select a vendor…</option>

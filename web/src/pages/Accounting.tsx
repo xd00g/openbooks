@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { Page, Table, Button, Empty, Modal } from '../components/ui';
+import { Page, Table, Button, Empty, Modal, Banner } from '../components/ui';
 import ImportIifDialog from '../components/ImportIifDialog';
 
 /** Subtypes grouped by the top-level type they belong to. The server derives
@@ -106,7 +106,7 @@ export default function Accounting() {
         </div>
       }
     >
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
       {!editable && <div className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">You have read-only access to the chart of accounts.</div>}
 
       {q.isLoading && <div className="text-sm text-slate-400">Loading…</div>}

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { date } from '../lib/format';
-import { Page, Card, Table, Button, Empty, Modal } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
 
 const PERMISSIONS = [
   '*',
@@ -93,7 +93,7 @@ export default function Admin() {
 
   return (
     <Page title="Admin">
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
       <div className="mb-4 flex gap-2">
         {(['members', 'users', 'companies', 'roles', 'audit', ...(can('system:manage') ? ['system'] : [])] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${tab === t ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}>{t === 'members' ? 'Members (this co.)' : t}</button>

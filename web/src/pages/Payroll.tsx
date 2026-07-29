@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, today } from '../lib/format';
-import { Page, Card, Table, Button, Empty } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Banner } from '../components/ui';
 
 export default function Payroll() {
   const { companyId } = useAuth();
@@ -66,7 +66,7 @@ export default function Payroll() {
 
   return (
     <Page title="Employees & Payroll">
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="New employee">

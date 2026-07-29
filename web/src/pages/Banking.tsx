@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, date, today } from '../lib/format';
-import { Page, Card, Table, Button, Empty } from '../components/ui';
+import { Page, Card, Table, Button, Empty, Banner } from '../components/ui';
 
 export default function Banking() {
   const { companyId } = useAuth();
@@ -81,7 +81,7 @@ export default function Banking() {
 
   return (
     <Page title="Banking">
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
 
       {(bankAccounts.data ?? []).length === 0 ? (
         <ConnectBank bankGl={bankGl} onLinked={onLinked} onError={setErr} />

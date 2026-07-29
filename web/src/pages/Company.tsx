@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { applyTheme, DEFAULT_THEME, THEME_FIELDS, type Theme } from '../lib/theme';
-import { Page, Card, Button, Empty } from '../components/ui';
+import { Page, Card, Button, Empty, Banner } from '../components/ui';
 
 const FIELDS: { key: string; label: string; type?: string }[] = [
   { key: 'legalName', label: 'Legal name' },
@@ -51,7 +51,7 @@ export default function Company() {
 
   return (
     <Page title="Company" actions={editable ? <Button onClick={() => save.mutate()}>{saved ? 'Saved ✓' : 'Save changes'}</Button> : undefined}>
-      {err && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <Banner text={err} />
       {!editable && <div className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">You have read-only access to company settings.</div>}
       <Card title="Company profile">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
