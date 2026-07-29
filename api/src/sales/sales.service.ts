@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { AccountResolverService } from '../accounts/account-resolver.service';
@@ -12,6 +13,8 @@ import {
   computeDocumentTotals,
 } from '../documents/document.logic';
 import { Money } from '../ledger/money';
+import { MailService } from '../auth/mail.service';
+import { buildInvoicePdf } from './invoice-pdf';
 
 export interface CustomerInput {
   displayName: string;
@@ -54,7 +57,55 @@ export class SalesService {
     private readonly ledger: LedgerService,
     private readonly accounts: AccountResolverService,
     private readonly invoicePosting: InvoicePostingService,
+    private readonly mail: MailService,
   ) {}
+
+  /** Gather invoice + customer + company and render a PDF buffer. */
+  private async gatherPdf(tx: PrismaClient, companyId: string, id: string) {
+    const inv = await tx.invoice.findFirst({
+      where: { id },
+      include: { lines: { orderBy: { sortOrder: 'asc' } }, customer: true },
+    });
+    if (!inv) throw new NotFoundException('Invoice not found.');
+    const company = await tx.company.findFirst({ where: { id: companyId } });
+    const buffer = await buildInvoicePdf({
+      company: {
+        legalName: company?.legalName ?? 'Company',
+        email: company?.email,
+        phone: company?.phone,
+        address: { line1: company?.addressLine1, line2: company?.addressLine2, city: company?.city, region: company?.region, postalCode: company?.postalCode, country: company?.country },
+      },
+      customer: { displayName: inv.customer.displayName, companyName: inv.customer.companyName, email: inv.customer.email, billingAddress: inv.customer.billingAddress },
+      invoice: {
+        number: inv.number, issueDate: inv.issueDate, dueDate: inv.dueDate, currency: inv.currency,
+        subtotal: inv.subtotal.toString(), taxTotal: inv.taxTotal.toString(), total: inv.total.toString(), memo: inv.memo,
+      },
+      lines: inv.lines.map((l: any) => ({ description: l.description, quantity: l.quantity.toString(), unitPrice: l.unitPrice.toString(), amount: l.amount.toString() })),
+    });
+    return { buffer, invoice: inv };
+  }
+
+  async invoicePdf(companyId: string, id: string): Promise<{ buffer: Buffer; number: string }> {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const { buffer, invoice } = await this.gatherPdf(tx as unknown as PrismaClient, companyId, id);
+      return { buffer, number: invoice.number };
+    });
+  }
+
+  async sendInvoice(companyId: string, id: string, toOverride?: string): Promise<{ sent: boolean; to: string }> {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const { buffer, invoice } = await this.gatherPdf(tx as unknown as PrismaClient, companyId, id);
+      const to = toOverride?.trim() || invoice.customer.email;
+      if (!to) throw new BadRequestException('This customer has no email address — add one or provide a recipient.');
+      await this.mail.sendWithAttachment(
+        to,
+        `Invoice ${invoice.number}`,
+        `Hello,\n\nPlease find attached invoice ${invoice.number} for ${invoice.total.toString()} ${invoice.currency}.\n\nThank you.`,
+        [{ filename: `${invoice.number}.pdf`, content: buffer, contentType: 'application/pdf' }],
+      );
+      return { sent: true, to };
+    });
+  }
 
   createCustomer(companyId: string, data: CustomerInput) {
     return this.prisma.forCompany(companyId, (tx) =>

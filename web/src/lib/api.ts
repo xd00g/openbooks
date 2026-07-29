@@ -52,4 +52,15 @@ export const api = {
   put: <T = any>(p: string, body?: unknown) =>
     request<T>(p, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   del: <T = any>(p: string) => request<T>(p, { method: 'DELETE' }),
+  /** Fetch a binary response (e.g. a PDF) with auth and return an object URL. */
+  blobUrl: async (p: string): Promise<string> => {
+    const headers: Record<string, string> = {};
+    const token = tokenStore.get();
+    if (token) headers['authorization'] = `Bearer ${token}`;
+    const companyId = companyStore.get();
+    if (companyId) headers['x-company-id'] = companyId;
+    const res = await fetch(`${BASE}${p}`, { headers });
+    if (!res.ok) throw new Error('Failed to load file.');
+    return URL.createObjectURL(await res.blob());
+  },
 };
