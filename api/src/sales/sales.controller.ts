@@ -5,10 +5,11 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
-import { SalesService } from './sales.service';
+import { SalesService, CustomerInput } from './sales.service';
 import { DocLineInput } from '../documents/document.logic';
 
 function company(id?: string): string {
@@ -25,9 +26,18 @@ export class SalesController {
   @Post('customers')
   createCustomer(
     @Headers('x-company-id') cid: string,
-    @Body() body: { displayName: string; email?: string },
+    @Body() body: CustomerInput,
   ) {
     return this.sales.createCustomer(company(cid), body);
+  }
+
+  @Patch('customers/:id')
+  updateCustomer(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: Partial<CustomerInput>,
+  ) {
+    return this.sales.updateCustomer(company(cid), id, body);
   }
 
   @Get('customers')

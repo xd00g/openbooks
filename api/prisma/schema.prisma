@@ -316,9 +316,14 @@ model Customer {
   companyId    String   @db.Uuid
   displayName  String
   companyName  String?
+  contactName  String?  // primary contact person
   email        String?
   phone        String?
+  mobile       String?
+  fax          String?
+  website      String?
   billingAddress Json?
+  shippingAddress Json?
   isActive     Boolean  @default(true)
   notes        String?
   createdAt    DateTime @default(now())
@@ -417,8 +422,12 @@ model Vendor {
   companyId   String   @db.Uuid
   displayName String
   companyName String?
+  contactName String?  // primary contact person
   email       String?
   phone       String?
+  mobile      String?
+  fax         String?
+  website     String?
   address     Json?
   is1099      Boolean  @default(false) // year-end 1099 tracking (doc §11)
   taxId       String?  // encrypted at app layer

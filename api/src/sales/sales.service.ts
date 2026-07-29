@@ -13,6 +13,21 @@ import {
 } from '../documents/document.logic';
 import { Money } from '../ledger/money';
 
+export interface CustomerInput {
+  displayName: string;
+  companyName?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  fax?: string;
+  website?: string;
+  billingAddress?: any;
+  shippingAddress?: any;
+  notes?: string;
+  isActive?: boolean;
+}
+
 interface CreateInvoiceInput {
   customerId: string;
   issueDate: string;
@@ -40,9 +55,15 @@ export class SalesService {
     private readonly invoicePosting: InvoicePostingService,
   ) {}
 
-  createCustomer(companyId: string, data: { displayName: string; email?: string }) {
+  createCustomer(companyId: string, data: CustomerInput) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.customer.create({ data: { companyId, ...data } }),
+    );
+  }
+
+  updateCustomer(companyId: string, id: string, data: Partial<CustomerInput>) {
+    return this.prisma.forCompany(companyId, (tx) =>
+      tx.customer.update({ where: { id }, data }),
     );
   }
 

@@ -21,11 +21,20 @@ export default function Sales() {
   const refresh = () => { qc.invalidateQueries({ queryKey: key('invoices') }); };
   const wrap = (p: Promise<any>) => p.then(refresh).catch((e) => setErr(e.message));
 
-  // new customer
-  const [custName, setCustName] = useState('');
+  // new customer (full contact info)
+  const emptyCust = { displayName: '', companyName: '', contactName: '', email: '', phone: '', mobile: '', website: '', line1: '', city: '', region: '', postalCode: '', country: '' };
+  const [cust, setCust] = useState(emptyCust);
   const addCustomer = useMutation({
-    mutationFn: () => api.post('/sales/customers', { displayName: custName }),
-    onSuccess: () => { setCustName(''); qc.invalidateQueries({ queryKey: key('customers') }); },
+    mutationFn: () => {
+      const { line1, city, region, postalCode, country, ...rest } = cust;
+      const billingAddress = (line1 || city || region || postalCode || country)
+        ? { line1, city, region, postalCode, country } : undefined;
+      const payload: any = {};
+      if (billingAddress) payload.billingAddress = billingAddress;
+      for (const [k, v] of Object.entries(rest)) if (v) payload[k] = v;
+      return api.post('/sales/customers', payload);
+    },
+    onSuccess: () => { setCust(emptyCust); qc.invalidateQueries({ queryKey: key('customers') }); },
     onError: (e: any) => setErr(e.message),
   });
 
@@ -56,11 +65,22 @@ export default function Sales() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="New customer">
-          <div className="flex gap-2">
-            <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="Name" className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
-            <Button onClick={() => addCustomer.mutate()} disabled={!custName}>Add</Button>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ['displayName', 'Display name *'], ['companyName', 'Company'],
+              ['contactName', 'Contact person'], ['email', 'Email'],
+              ['phone', 'Phone'], ['mobile', 'Mobile'], ['website', 'Website'],
+              ['line1', 'Address'], ['city', 'City'], ['region', 'State/Region'],
+              ['postalCode', 'Postal code'], ['country', 'Country'],
+            ] as [keyof typeof cust, string][]).map(([f, label]) => (
+              <input key={f} value={cust[f]} onChange={(e) => setCust({ ...cust, [f]: e.target.value })}
+                placeholder={label} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+            ))}
           </div>
-          <div className="mt-3 text-xs text-slate-500">{(customers.data ?? []).length} customers</div>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-xs text-slate-500">{(customers.data ?? []).length} customers</span>
+            <Button onClick={() => addCustomer.mutate()} disabled={!cust.displayName}>Add customer</Button>
+          </div>
         </Card>
 
         <Card title="New invoice">

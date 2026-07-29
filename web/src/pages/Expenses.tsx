@@ -22,10 +22,19 @@ export default function Expenses() {
   const refresh = () => qc.invalidateQueries({ queryKey: key('bills') });
   const wrap = (p: Promise<any>) => p.then(refresh).catch((e) => setErr(e.message));
 
-  const [vName, setVName] = useState('');
+  const emptyVend = { displayName: '', companyName: '', contactName: '', email: '', phone: '', mobile: '', website: '', taxId: '', line1: '', city: '', region: '', postalCode: '', country: '', is1099: false };
+  const [vend, setVend] = useState(emptyVend);
   const addVendor = useMutation({
-    mutationFn: () => api.post('/expenses/vendors', { displayName: vName }),
-    onSuccess: () => { setVName(''); qc.invalidateQueries({ queryKey: key('vendors') }); },
+    mutationFn: () => {
+      const { line1, city, region, postalCode, country, is1099, ...rest } = vend;
+      const address = (line1 || city || region || postalCode || country)
+        ? { line1, city, region, postalCode, country } : undefined;
+      const payload: any = { is1099 };
+      if (address) payload.address = address;
+      for (const [k, v] of Object.entries(rest)) if (v) payload[k] = v;
+      return api.post('/expenses/vendors', payload);
+    },
+    onSuccess: () => { setVend(emptyVend); qc.invalidateQueries({ queryKey: key('vendors') }); },
     onError: (e: any) => setErr(e.message),
   });
 
@@ -56,11 +65,27 @@ export default function Expenses() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="New vendor">
-          <div className="flex gap-2">
-            <input value={vName} onChange={(e) => setVName(e.target.value)} placeholder="Name" className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
-            <Button onClick={() => addVendor.mutate()} disabled={!vName}>Add</Button>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ['displayName', 'Display name *'], ['companyName', 'Company'],
+              ['contactName', 'Contact person'], ['email', 'Email'],
+              ['phone', 'Phone'], ['mobile', 'Mobile'], ['website', 'Website'],
+              ['taxId', 'Tax ID (1099)'],
+              ['line1', 'Address'], ['city', 'City'], ['region', 'State/Region'],
+              ['postalCode', 'Postal code'], ['country', 'Country'],
+            ] as [Exclude<keyof typeof vend, 'is1099'>, string][]).map(([f, label]) => (
+              <input key={f} value={vend[f]} onChange={(e) => setVend({ ...vend, [f]: e.target.value })}
+                placeholder={label} className="rounded-md border border-slate-300 px-2 py-1 text-sm" />
+            ))}
           </div>
-          <div className="mt-3 text-xs text-slate-500">{(vendors.data ?? []).length} vendors</div>
+          <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={vend.is1099} onChange={(e) => setVend({ ...vend, is1099: e.target.checked })} />
+            Track for 1099
+          </label>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-xs text-slate-500">{(vendors.data ?? []).length} vendors</span>
+            <Button onClick={() => addVendor.mutate()} disabled={!vend.displayName}>Add vendor</Button>
+          </div>
         </Card>
 
         <Card title="New bill">

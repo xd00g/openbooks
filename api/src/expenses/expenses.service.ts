@@ -6,6 +6,22 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
+
+export interface VendorInput {
+  displayName: string;
+  companyName?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  fax?: string;
+  website?: string;
+  address?: any;
+  is1099?: boolean;
+  taxId?: string;
+  isActive?: boolean;
+}
+
 import { AccountResolverService } from '../accounts/account-resolver.service';
 import {
   buildBillPosting,
@@ -46,12 +62,15 @@ export class ExpensesService {
     private readonly accounts: AccountResolverService,
   ) {}
 
-  createVendor(
-    companyId: string,
-    data: { displayName: string; email?: string; is1099?: boolean },
-  ) {
+  createVendor(companyId: string, data: VendorInput) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.vendor.create({ data: { companyId, ...data } }),
+    );
+  }
+
+  updateVendor(companyId: string, id: string, data: Partial<VendorInput>) {
+    return this.prisma.forCompany(companyId, (tx) =>
+      tx.vendor.update({ where: { id }, data }),
     );
   }
 
