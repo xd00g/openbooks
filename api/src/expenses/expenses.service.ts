@@ -199,6 +199,40 @@ export class ExpensesService {
     );
   }
 
+  /** A vendor's full activity: every bill + every payment, chronological, with
+   *  a running balance — the basis for a vendor statement. */
+  async vendorStatement(companyId: string, vendorId: string) {
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const vendor = await tx.vendor.findFirst({ where: { id: vendorId } });
+      if (!vendor) throw new NotFoundException('Vendor not found.');
+
+      const [bills, payments] = await Promise.all([
+        tx.bill.findMany({ where: { vendorId, status: { not: 'draft' } }, orderBy: { issueDate: 'asc' } }),
+        tx.payment.findMany({
+          where: { vendorId, direction: 'paid' },
+          include: { applications: { select: { billId: true, amount: true } } },
+          orderBy: { paymentDate: 'asc' },
+        }),
+      ]);
+
+      type Row = { date: Date; kind: 'bill' | 'payment'; ref: string; id: string; charge: number; payment: number };
+      const rows: Row[] = [
+        ...bills.map((b) => ({ date: b.issueDate, kind: 'bill' as const, ref: b.number ?? b.id.slice(0, 8), id: b.id, charge: Number(b.total), payment: 0 })),
+        ...payments.map((p) => ({ date: p.paymentDate, kind: 'payment' as const, ref: p.reference ?? p.method ?? 'Payment', id: p.id, charge: 0, payment: Number(p.amount) })),
+      ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      let running = 0;
+      const withBalance = rows.map((r) => { running += r.charge - r.payment; return { ...r, balance: running.toFixed(2) }; });
+
+      return {
+        vendor: { id: vendor.id, displayName: vendor.displayName, companyName: vendor.companyName, email: vendor.email, phone: vendor.phone, address: vendor.address },
+        openBills: bills.filter((b) => Number(b.balanceDue) > 0).map((b) => ({ id: b.id, number: b.number, issueDate: b.issueDate, dueDate: b.dueDate, total: b.total.toString(), balanceDue: b.balanceDue.toString() })),
+        rows: withBalance,
+        balance: running.toFixed(2),
+      };
+    });
+  }
+
   /** Record a vendor payment, apply to bills, and post Dr AP / Cr Bank. */
   async payBills(companyId: string, input: PayBillsInput) {
     return this.prisma.forCompany(companyId, async (tx) => {

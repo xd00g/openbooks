@@ -21,6 +21,7 @@ import Company from './pages/Company';
 import Admin from './pages/Admin';
 import Customers from './pages/Customers';
 import Vendors from './pages/Vendors';
+import VendorStatements from './pages/VendorStatements';
 import Employees from './pages/Employees';
 import Items from './pages/Items';
 import TaxRates from './pages/TaxRates';
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
       { to: '/expenses', label: 'Bills', icon: <CreditCard size={15} /> },
       { to: '/customers', label: 'Customers', icon: <Users size={15} /> },
       { to: '/vendors', label: 'Vendors', icon: <Building2 size={15} /> },
+      { to: '/vendor-statements', label: 'Vendor Statements', icon: <ReceiptText size={15} /> },
       { to: '/items', label: 'Products & Services', icon: <Package size={15} /> },
       { to: '/tax', label: 'Sales Tax', icon: <Percent size={15} /> },
       { to: '/payment-terms', label: 'Payment Terms', icon: <CalendarClock size={15} /> },
@@ -221,6 +223,7 @@ export default function App() {
           <Route path="/accounting" element={<Accounting />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/vendors" element={<Vendors />} />
+          <Route path="/vendor-statements" element={<VendorStatements />} />
           <Route path="/items" element={<Items />} />
           <Route path="/tax" element={<TaxRates />} />
           <Route path="/payment-terms" element={<PaymentTerms />} />

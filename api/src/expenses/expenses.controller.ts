@@ -46,6 +46,11 @@ export class ExpensesController {
     return this.expenses.listVendors(company(cid));
   }
 
+  @Get('vendors/:id/statement')
+  vendorStatement(@Headers('x-company-id') cid: string, @Param('id') id: string) {
+    return this.expenses.vendorStatement(company(cid), id);
+  }
+
   @Post('bills')
   createBill(
     @Headers('x-company-id') cid: string,
