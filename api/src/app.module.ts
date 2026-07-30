@@ -22,6 +22,7 @@ import { ImportModule } from './import/import.module';
 import { ItemsModule } from './items/items.module';
 import { TaxModule } from './tax/tax.module';
 import { PaymentTermsModule } from './payment-terms/payment-terms.module';
+import { ChecksModule } from './checks/checks.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PaymentTermsModule } from './payment-terms/payment-terms.module';
     PeriodModule,
     SalesModule,
     ExpensesModule,
+    ChecksModule,
     AttachmentsModule,
     PayrollModule,
     CompanyModule,

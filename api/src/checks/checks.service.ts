@@ -275,7 +275,12 @@ export class ChecksService {
    * True void: the check was issued but never cleared. Posts a reversing
    * journal entry (the ledger is immutable) and reopens the bills.
    */
-  async voidCheck(companyId: string, checkId: string, reason: string) {
+  async voidCheck(
+    companyId: string,
+    checkId: string,
+    reason: string,
+    createdById?: string,
+  ) {
     return this.prisma.forCompany(companyId, async (tx) => {
       const check = await tx.check.findFirst({ where: { id: checkId } });
       if (!check) throw new NotFoundException('Check not found.');
@@ -307,6 +312,7 @@ export class ChecksService {
           companyId,
           payment.journalEntryId,
           new Date(),
+          createdById,
         );
       } catch (e) {
         throw new ConflictException((e as Error).message);
