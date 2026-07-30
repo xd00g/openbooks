@@ -580,6 +580,7 @@ model Check {
   memo          String?
   printBatchId  String?   @db.Uuid
   printedAt     DateTime?
+  confirmedAt   DateTime? // set when a print batch is confirmed; makes commit terminal
   voidedAt      DateTime?
   voidReason    String?   // 'misprint' | free text; distinguishes the two voids
   createdAt     DateTime  @default(now())

@@ -124,12 +124,12 @@ export class ChecksService {
   async batchPdf(companyId: string, printBatchId: string): Promise<Buffer> {
     const data = await this.prisma.forCompany(companyId, async (tx) => {
       const checks = await tx.check.findMany({
-        where: { printBatchId },
+        where: { printBatchId, status: { not: 'voided' } },
         orderBy: { checkNumber: 'asc' },
       });
       if (checks.length === 0) throw new NotFoundException('Print batch not found.');
 
-      const company = await tx.company.findFirst({ select: { legalName: true } });
+      const company = await tx.company.findFirst({ where: { id: companyId }, select: { legalName: true } });
       const bank = await tx.bankAccount.findFirst({
         where: { id: checks[0].bankAccountId },
         select: { printOffsetX: true, printOffsetY: true },
@@ -173,6 +173,12 @@ export class ChecksService {
    * voidReason 'misprint') and is returned to the queue with a fresh row-level
    * reset. Payments and journal entries are untouched — a misprint is a paper
    * event, not an accounting one (spec 5.2).
+   *
+   * `confirmedAt` is the terminal marker for a committed check: once set, that
+   * check is permanently out of scope for any later call on this batch (a
+   * retried misprint report, a duplicate confirm, etc). Only rows still
+   * `status: 'printed'` with `confirmedAt: null` — the `pending` set — are
+   * ever mutated or counted here.
    */
   async confirmBatch(
     companyId: string,
@@ -186,8 +192,13 @@ export class ChecksService {
       });
       if (checks.length === 0) throw new NotFoundException('Print batch not found.');
 
-      // Idempotent: a batch with nothing still 'printed' was already handled.
-      if (!checks.some((c) => c.status === 'printed')) {
+      const pending = checks.filter(
+        (c) => c.status === 'printed' && c.confirmedAt == null,
+      );
+
+      // Idempotent: nothing left pending means this batch was already handled
+      // (fully committed, fully requeued, or some mix) — a retry is a no-op.
+      if (pending.length === 0) {
         return { committed: 0, requeued: 0, alreadyHandled: true };
       }
 
@@ -198,26 +209,38 @@ export class ChecksService {
       // payment. A requeued check shares the same paymentId, so when it later
       // reprints and commits, this overwrites the reference with the new
       // number — which is the correct end state.
-      const stampReference = async (paymentId: string, checkNumber: number) => {
+      const commit = async (c: (typeof pending)[number]) => {
         await tx.payment.update({
-          where: { id: paymentId },
-          data: { reference: `Check ${checkNumber}` },
+          where: { id: c.paymentId },
+          data: { reference: `Check ${c.checkNumber}` },
+        });
+        await tx.check.update({
+          where: { id: c.id },
+          data: { confirmedAt: new Date() },
         });
       };
 
       if (input.ok) {
-        for (const c of checks) {
-          await stampReference(c.paymentId, c.checkNumber as number);
+        for (const c of pending) {
+          await commit(c);
         }
-        return { committed: checks.length, requeued: 0, alreadyHandled: false };
+        return { committed: pending.length, requeued: 0, alreadyHandled: false };
       }
 
-      const from = input.reprintFromNumber ?? (checks[0].checkNumber as number);
+      const from = input.reprintFromNumber ?? (pending[0].checkNumber as number);
+      const validNumbers = pending.map((c) => c.checkNumber as number);
+      if (!validNumbers.includes(from)) {
+        throw new BadRequestException(
+          `reprintFromNumber ${from} is not a pending check number in this batch ` +
+            `(valid: ${Math.min(...validNumbers)}-${Math.max(...validNumbers)}).`,
+        );
+      }
+
       let requeued = 0;
-      for (const c of checks) {
+      for (const c of pending) {
         if ((c.checkNumber as number) < from) {
           // Ahead of the jam — this one printed fine, so commit it.
-          await stampReference(c.paymentId, c.checkNumber as number);
+          await commit(c);
           continue;
         }
         await tx.check.update({
@@ -244,7 +267,7 @@ export class ChecksService {
         });
         requeued++;
       }
-      return { committed: checks.length - requeued, requeued, alreadyHandled: false };
+      return { committed: pending.length - requeued, requeued, alreadyHandled: false };
     });
   }
 
@@ -278,12 +301,16 @@ export class ChecksService {
         );
       }
 
-      await this.ledger.reverseEntry(
-        tx as never,
-        companyId,
-        payment.journalEntryId,
-        new Date(),
-      );
+      try {
+        await this.ledger.reverseEntry(
+          tx as never,
+          companyId,
+          payment.journalEntryId,
+          new Date(),
+        );
+      } catch (e) {
+        throw new ConflictException((e as Error).message);
+      }
 
       // Reopen the bills this payment had settled.
       const applications = await tx.paymentApplication.findMany({
