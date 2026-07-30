@@ -126,6 +126,7 @@ export class ExpensesController {
       bankAccountId: string;
       method?: string;
       reference?: string;
+      printLater?: boolean;
       allocations: { billId: string; amount: string }[];
     },
   ) {

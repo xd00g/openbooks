@@ -51,6 +51,8 @@ interface PayBillsInput {
   bankAccountId: string; // source of funds (required for paid)
   method?: string;
   reference?: string;
+  /** Queue a printed check for this payment instead of recording it as already paid. */
+  printLater?: boolean;
   allocations: { billId: string; amount: string }[];
 }
 
@@ -354,6 +356,36 @@ export class ExpensesService {
           depositAccountId: bank.id, // source bank account
         },
       });
+
+      // Queue a check for printing. The number is assigned later, by a print
+      // batch — not here — so a jam can't burn a number (spec 5.1).
+      if (input.printLater) {
+        const vendor = await tx.vendor.findFirst({
+          where: { id: input.vendorId },
+          select: { displayName: true },
+        });
+        const bankAccountRow = await tx.bankAccount.findFirst({
+          where: { accountId: bank.id },
+          select: { id: true },
+        });
+        if (!bankAccountRow) {
+          throw new BadRequestException(
+            'This GL account is not set up as a bank account, so checks cannot be printed from it.',
+          );
+        }
+        await tx.check.create({
+          data: {
+            companyId,
+            bankAccountId: bankAccountRow.id,
+            paymentId: payment.id,
+            status: 'queued',
+            payeeName: vendor?.displayName ?? 'Vendor',
+            amount: result.totalApplied,
+            checkDate: new Date(input.paymentDate),
+            memo: input.reference ?? null,
+          },
+        });
+      }
 
       const totalById = new Map(bills.map((b) => [b.id, b.total.toString()]));
       for (const u of result.updates) {
