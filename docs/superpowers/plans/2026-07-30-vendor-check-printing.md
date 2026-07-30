@@ -1112,14 +1112,35 @@ export class ChecksService {
         return { committed: 0, requeued: 0, alreadyHandled: true };
       }
 
+      // Spec 11.2: stamp the committed check number onto its Payment, so the
+      // number shows up in vendor statements — those render Payment.reference
+      // (`expenses.service.ts`: `p.reference ?? p.method ?? 'Payment'`).
+      // Only committed checks are stamped; a misprinted number never reaches a
+      // payment. A requeued check shares the same paymentId, so when it later
+      // reprints and commits, this overwrites the reference with the new
+      // number — which is the correct end state.
+      const stampReference = async (paymentId: string, checkNumber: number) => {
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: { reference: `Check ${checkNumber}` },
+        });
+      };
+
       if (input.ok) {
+        for (const c of checks) {
+          await stampReference(c.paymentId, c.checkNumber as number);
+        }
         return { committed: checks.length, requeued: 0, alreadyHandled: false };
       }
 
       const from = input.reprintFromNumber ?? (checks[0].checkNumber as number);
       let requeued = 0;
       for (const c of checks) {
-        if ((c.checkNumber as number) < from) continue;
+        if ((c.checkNumber as number) < from) {
+          // Ahead of the jam — this one printed fine, so commit it.
+          await stampReference(c.paymentId, c.checkNumber as number);
+          continue;
+        }
         await tx.check.update({
           where: { id: c.id },
           data: {
@@ -1811,7 +1832,8 @@ Sign in at https://books.doogster.com and confirm, in order:
 4. Report a misprint from 1002; check 1002 is voided and a fresh queued row appears, while 1001 stays committed.
 5. Reprint the requeued check starting at 1003; it succeeds.
 6. Try to print starting at 1001 again; it is rejected naming 1001.
-7. Void a printed check; the bill returns to open and a reversing entry exists in the register.
+7. Open the vendor statement for the payee; the committed payment shows `Check 1001` in its reference column (spec §11.2).
+8. Void a printed check; the bill returns to open and a reversing entry exists in the register.
 
 - [ ] **Step 4: Update project memory**
 
@@ -1839,6 +1861,6 @@ git commit -m "docs: note check printing conventions in project memory"
 
 **Spec coverage.** Every numbered spec section maps to a task: §3 architecture → Tasks 1, 2, 5, 6, 7; §4 data model → Task 3; §4.4 constraint → Tasks 3 and 8; §5 flow → Tasks 4, 6, 7; §5.2 both voids → Tasks 2, 6; §6 PDF and §6.1 amount-to-words → Tasks 5, 1; §7 UI → Task 9; §8 error handling → Tasks 6, 7; §9 testing → Tasks 1, 2, 8, 10; §11.1 stock measurement → Task 10 step 3.
 
-**Known gap, deliberate:** spec §11.2 (backfilling `Payment.reference` with the check number) is **not** implemented. It was listed as optional and low-risk either way. Add it as a follow-up if the check number should appear in existing vendor statements.
+**Spec §11.2 is implemented** in Task 6's `confirmBatch`: committing a check stamps `Payment.reference` with `Check <number>`, so the number appears in vendor statements. Misprinted numbers are never stamped, and a reprint overwrites the reference with its new number. Verified in Task 10 step 3 (item 7).
 
 **Type consistency:** `CheckError`, `amountToWords`, `allocateCheckNumbers`, `assertVoidable`, `VoidKind`, `VoidableCheck`, `CheckPdfData`, `buildCheckPdf`, `buildAlignmentTestPdf`, and `ChecksService` are each defined once and referenced with the same names and signatures in every later task.

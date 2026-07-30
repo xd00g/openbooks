@@ -303,6 +303,8 @@ None blocking. Two items to confirm while building:
 1. Exact check region height varies slightly by stock vendor (3.5″ is the
    common standard). The alignment test page exists to absorb this; verify
    against the user's actual stock before finalizing default coordinates.
-2. Whether `Payment.reference` should be backfilled with the check number on
-   confirm, for display in existing vendor statements. Low risk either way;
-   recommend yes for consistency.
+2. ~~Whether `Payment.reference` should be backfilled with the check number on
+   confirm.~~ **Decided 2026-07-30: yes.** Committing a check stamps
+   `Payment.reference` with `Check <number>`, so the number surfaces in vendor
+   statements (which render `p.reference ?? p.method ?? 'Payment'`). Misprinted
+   numbers are never stamped; a reprint overwrites with its new number.
