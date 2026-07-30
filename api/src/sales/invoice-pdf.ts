@@ -80,19 +80,37 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
       .filter(Boolean)
       .forEach((l) => doc.text(String(l), 50));
 
-    // ---- Line items table ----
-    let y = 240;
-    doc.fillColor('#0b3d2e').fontSize(9);
-    doc.text('DESCRIPTION', 50, y);
-    doc.text('QTY', 330, y, { width: 50, align: 'right' });
-    doc.text('UNIT', 390, y, { width: 70, align: 'right' });
-    doc.text('AMOUNT', 470, y, { width: 90, align: 'right' });
-    y += 14;
-    doc.moveTo(50, y).lineTo(right, y).strokeColor('#ddd').stroke();
-    y += 8;
+    // ---- Line items table (paginated: every absolute-positioned block below
+    // must check remaining space itself — pdfkit only auto-paginates flowing
+    // text with no explicit y, which none of this uses) ----
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
+    const TOP_MARGIN = 50;
+    const drawColumnHeader = (atY: number): number => {
+      doc.fillColor('#0b3d2e').fontSize(9);
+      doc.text('DESCRIPTION', 50, atY);
+      doc.text('QTY', 330, atY, { width: 50, align: 'right' });
+      doc.text('UNIT', 390, atY, { width: 70, align: 'right' });
+      doc.text('AMOUNT', 470, atY, { width: 90, align: 'right' });
+      const lineY = atY + 14;
+      doc.moveTo(50, lineY).lineTo(right, lineY).strokeColor('#ddd').stroke();
+      return lineY + 8;
+    };
+    /** If the next block (estimated `needed` pt tall) won't fit, start a new
+     *  page and re-draw the column header so the table reads correctly
+     *  across pages. */
+    const ensureSpace = (curY: number, needed: number): number => {
+      if (curY + needed <= pageBottom) return curY;
+      doc.addPage();
+      return drawColumnHeader(TOP_MARGIN);
+    };
+
+    let y = drawColumnHeader(240);
     for (const l of data.lines) {
       const title = l.name?.trim() || l.description?.trim() || '—';
       const subtitle = l.name?.trim() && l.description?.trim() && l.description.trim() !== title ? l.description.trim() : null;
+      // Estimate row height up front (title line + optional subtitle line)
+      // so we can decide *before* drawing whether it needs a fresh page.
+      y = ensureSpace(y, subtitle ? 32 : 20);
 
       doc.font('Helvetica-Bold').fontSize(9).fillColor('#000').text(title, 50, y, { width: 270 });
       doc.font('Helvetica').fontSize(9).fillColor('#000');
@@ -108,7 +126,8 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
       y = rowBottom + 6;
     }
 
-    // ---- Totals ----
+    // ---- Totals ---- (keep the 3 rows + divider together on one page)
+    y = ensureSpace(y, 60);
     doc.moveTo(360, y).lineTo(right, y).strokeColor('#ddd').stroke();
     y += 8;
     const totalRow = (label: string, val: string, bold = false) => {
@@ -122,7 +141,8 @@ export function buildInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
     totalRow('Total', data.invoice.total, true);
 
     if (data.invoice.memo) {
-      doc.font('Helvetica').fontSize(9).fillColor('#555').text(`Notes: ${data.invoice.memo}`, 50, y + 20, { width: 400 });
+      y = ensureSpace(y + 20, 40);
+      doc.font('Helvetica').fontSize(9).fillColor('#555').text(`Notes: ${data.invoice.memo}`, 50, y, { width: 400 });
     }
 
     doc.end();

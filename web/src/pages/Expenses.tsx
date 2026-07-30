@@ -125,7 +125,7 @@ export default function Expenses() {
     <Page title="Expenses">
       <Banner text={err} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_540px] 2xl:grid-cols-[minmax(0,1fr)_620px]">
         <Card title={editingId ? 'Edit bill' : 'New bill'}>
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2">
