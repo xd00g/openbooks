@@ -88,3 +88,68 @@ export function amountToWords(amount: string): string {
   const words = `${wholeToWords(match[1])} and ${frac.slice(0, 2)}/100`;
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
+
+/**
+ * Allocate a contiguous run of check numbers.
+ *
+ * Contiguity is not a simplification — check stock is physical paper in
+ * sequential order in the printer tray, so a gap cannot be skipped over the
+ * way a database id can. If any number in the range is spent, the whole range
+ * is unprintable.
+ *
+ * `usedNumbers` must include voided numbers: once a number is on paper it is
+ * spent regardless of what happened to that paper (spec 4.4).
+ */
+export function allocateCheckNumbers(
+  startNumber: number,
+  count: number,
+  usedNumbers: Iterable<number>,
+): number[] {
+  if (!Number.isInteger(startNumber) || startNumber < 1) {
+    throw new CheckError('Starting check number must be a positive whole number.');
+  }
+  if (!Number.isInteger(count) || count < 1) {
+    throw new CheckError('Select at least one check to print.');
+  }
+
+  const used = new Set(usedNumbers);
+  const last = startNumber + count - 1;
+  const range: number[] = [];
+  for (let n = startNumber; n <= last; n++) {
+    if (used.has(n)) {
+      throw new CheckError(
+        `Check number ${n} has already been used. Check stock is sequential, ` +
+          `so the range ${startNumber}-${last} cannot be printed. ` +
+          `Choose a different starting number.`,
+      );
+    }
+    range.push(n);
+  }
+  return range;
+}
+
+/** A misprint burns the number only; a cancel also reverses the ledger. */
+export type VoidKind = 'misprint' | 'cancel';
+
+export interface VoidableCheck {
+  status: string;
+  checkNumber: number | null;
+}
+
+/**
+ * Preconditions shared by both kinds of void. The kinds differ in ledger
+ * impact (handled in the service), not in what may be voided.
+ */
+export function assertVoidable(check: VoidableCheck, _kind: VoidKind): void {
+  if (check.status === 'voided') {
+    throw new CheckError('This check is already voided.');
+  }
+  if (check.status !== 'printed') {
+    throw new CheckError(
+      `Only printed checks can be voided (this one is "${check.status}").`,
+    );
+  }
+  if (check.checkNumber == null) {
+    throw new CheckError('A printed check must have a number.');
+  }
+}

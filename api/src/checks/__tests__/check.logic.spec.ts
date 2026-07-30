@@ -1,4 +1,10 @@
-import { amountToWords, CheckError } from '../check.logic';
+import {
+  amountToWords,
+  allocateCheckNumbers,
+  assertVoidable,
+  CheckError,
+  type VoidableCheck,
+} from '../check.logic';
 
 describe('amountToWords', () => {
   it('writes a plain dollar amount', () => {
@@ -56,5 +62,74 @@ describe('amountToWords', () => {
 
   it('rejects non-numeric input', () => {
     expect(() => amountToWords('abc')).toThrow(CheckError);
+  });
+});
+
+describe('allocateCheckNumbers', () => {
+  it('returns a contiguous range', () => {
+    expect(allocateCheckNumbers(1001, 3, [])).toEqual([1001, 1002, 1003]);
+  });
+
+  it('allocates a single check', () => {
+    expect(allocateCheckNumbers(500, 1, [])).toEqual([500]);
+  });
+
+  it('allows a start that is not adjacent to previous numbers', () => {
+    expect(allocateCheckNumbers(2000, 2, [1001, 1002])).toEqual([2000, 2001]);
+  });
+
+  it('refuses a range colliding with a used number', () => {
+    expect(() => allocateCheckNumbers(1001, 3, [1002])).toThrow(CheckError);
+  });
+
+  it('refuses when the collision is a voided number', () => {
+    // Voided numbers stay spent — the paper was printed (spec 4.4).
+    expect(() => allocateCheckNumbers(1001, 1, [1001])).toThrow(CheckError);
+  });
+
+  it('names the offending number in the error', () => {
+    expect(() => allocateCheckNumbers(1001, 3, [1003])).toThrow(/1003/);
+  });
+
+  it('rejects a non-positive start', () => {
+    expect(() => allocateCheckNumbers(0, 1, [])).toThrow(CheckError);
+  });
+
+  it('rejects a non-integer start', () => {
+    expect(() => allocateCheckNumbers(10.5, 1, [])).toThrow(CheckError);
+  });
+
+  it('rejects an empty batch', () => {
+    expect(() => allocateCheckNumbers(1001, 0, [])).toThrow(CheckError);
+  });
+});
+
+describe('assertVoidable', () => {
+  const printed: VoidableCheck = { status: 'printed', checkNumber: 1001 };
+
+  it('permits voiding a printed check as a misprint', () => {
+    expect(() => assertVoidable(printed, 'misprint')).not.toThrow();
+  });
+
+  it('permits cancelling a printed check', () => {
+    expect(() => assertVoidable(printed, 'cancel')).not.toThrow();
+  });
+
+  it('refuses to void an already-voided check', () => {
+    expect(() =>
+      assertVoidable({ status: 'voided', checkNumber: 1001 }, 'cancel'),
+    ).toThrow(CheckError);
+  });
+
+  it('refuses to void a queued check that was never printed', () => {
+    expect(() =>
+      assertVoidable({ status: 'queued', checkNumber: null }, 'cancel'),
+    ).toThrow(CheckError);
+  });
+
+  it('refuses a printed check with no number', () => {
+    expect(() =>
+      assertVoidable({ status: 'printed', checkNumber: null }, 'cancel'),
+    ).toThrow(CheckError);
   });
 });
