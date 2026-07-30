@@ -538,7 +538,7 @@ model Payment {
   customer     Customer?            @relation(fields: [customerId], references: [id])
   vendor       Vendor?              @relation(fields: [vendorId], references: [id])
   applications PaymentApplication[]
-  check        Check?
+  checks       Check[]
 
   @@index([companyId, direction])
   @@map("payment")
@@ -571,7 +571,7 @@ model Check {
   id            String    @id @default(uuid()) @db.Uuid
   companyId     String    @db.Uuid
   bankAccountId String    @db.Uuid
-  paymentId     String    @unique @db.Uuid
+  paymentId     String    @db.Uuid
   checkNumber   Int?      // null until a print batch assigns one
   status        String    @default("queued") // queued | printed | voided
   payeeName     String
@@ -591,6 +591,7 @@ model Check {
 
   @@index([companyId, bankAccountId, status])
   @@index([companyId, printBatchId])
+  @@index([paymentId])
   @@map("check")
 }
 

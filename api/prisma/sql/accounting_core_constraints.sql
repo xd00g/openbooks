@@ -295,3 +295,21 @@ CREATE TRIGGER trg_journal_entry_closed_period
 CREATE UNIQUE INDEX IF NOT EXISTS check_number_unique_per_account
   ON "check" ("companyId", "bankAccountId", "checkNumber")
   WHERE "checkNumber" IS NOT NULL;
+
+-- ============================================================================
+-- ONE ACTIVE CHECK PER PAYMENT
+-- Uniqueness here is the OPPOSITE of check_number_unique_per_account above,
+-- and deliberately so: a check NUMBER stays spent forever once printed
+-- (misprint or not), but a PAYMENT may legitimately go through several check
+-- rows over its life — one voided for every misprint, plus the one that
+-- finally lands. The reprint flow (ChecksService.confirmBatch) keeps every
+-- voided row as the audit trail of burned numbers and inserts a fresh queued
+-- row for the same payment, so at any moment a payment must have at most one
+-- NON-voided check. This index excludes voided rows on purpose — do not
+-- "fix" it to match the absolute uniqueness above, and do not remove the
+-- exclusion above to match this one. They encode different invariants.
+-- "check" is a SQL reserved word and must stay quoted.
+-- ============================================================================
+CREATE UNIQUE INDEX IF NOT EXISTS check_one_active_per_payment
+  ON "check" ("paymentId")
+  WHERE status <> 'voided';
