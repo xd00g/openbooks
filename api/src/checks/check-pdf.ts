@@ -29,6 +29,20 @@ const fmtMoney = (v: string) =>
 
 const fmtDate = (v: string) => new Date(`${v}T00:00:00`).toLocaleDateString('en-US');
 
+/**
+ * Shared field positions for check drawing. Coordinates are in PDF points.
+ * Each field is drawn at these (x, y) positions with the specified width.
+ * The alignment test calibration page derives its guide boxes from these
+ * positions but applies calibration-specific y-offsets.
+ */
+const FIELD_POSITIONS = {
+  date: { x: 430, y: 70, width: 120 },
+  payee: { x: LEFT + 40, y: 112, width: 380 },
+  amount: { x: 470, y: 112, width: 90 },
+  legalAmount: { x: LEFT, y: 146, width: 430 },
+  signature: { x: 330, y: 212, width: 230 },
+} as const;
+
 export function buildCheckPdf(checks: CheckPdfData[]): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'LETTER', margin: 0 });
@@ -58,21 +72,30 @@ function drawCheck(doc: PDFKit.PDFDocument, c: CheckPdfData) {
   // address, routing/account numbers are already on the stock.
 
   doc.font('Helvetica').fontSize(10).fillColor('#000');
-  doc.text(fmtDate(c.checkDate), x(430), y(70), { width: 120 });
+  doc.text(fmtDate(c.checkDate), x(FIELD_POSITIONS.date.x), y(FIELD_POSITIONS.date.y), {
+    width: FIELD_POSITIONS.date.width,
+  });
 
   doc.font('Helvetica').fontSize(11);
-  doc.text(c.payeeName, x(LEFT + 40), y(112), { width: 380 });
+  doc.text(c.payeeName, x(FIELD_POSITIONS.payee.x), y(FIELD_POSITIONS.payee.y), {
+    width: FIELD_POSITIONS.payee.width,
+  });
 
   doc.font('Helvetica-Bold').fontSize(11);
-  doc.text(fmtMoney(c.amount), x(470), y(112), { width: 90, align: 'right' });
+  doc.text(fmtMoney(c.amount), x(FIELD_POSITIONS.amount.x), y(FIELD_POSITIONS.amount.y), {
+    width: FIELD_POSITIONS.amount.width,
+    align: 'right',
+  });
 
   // Legal amount. Trailing rule fills the line so nothing can be appended.
   doc.font('Helvetica').fontSize(10);
   const words = amountToWords(c.amount);
-  doc.text(words, x(LEFT), y(146), { width: 430 });
+  doc.text(words, x(FIELD_POSITIONS.legalAmount.x), y(FIELD_POSITIONS.legalAmount.y), {
+    width: FIELD_POSITIONS.legalAmount.width,
+  });
   const wordsWidth = doc.widthOfString(words);
   doc
-    .moveTo(x(LEFT + wordsWidth + 6), y(157))
+    .moveTo(x(FIELD_POSITIONS.legalAmount.x + wordsWidth + 6), y(157))
     .lineTo(x(500), y(157))
     .strokeColor('#666')
     .lineWidth(0.5)
@@ -85,13 +108,15 @@ function drawCheck(doc: PDFKit.PDFDocument, c: CheckPdfData) {
 
   // Blank signature line — no stored signature image, by design (spec 2).
   doc
-    .moveTo(x(330), y(212))
-    .lineTo(x(560), y(212))
+    .moveTo(x(FIELD_POSITIONS.signature.x), y(FIELD_POSITIONS.signature.y))
+    .lineTo(x(560), y(FIELD_POSITIONS.signature.y))
     .strokeColor('#000')
     .lineWidth(0.7)
     .stroke();
   doc.fontSize(7).fillColor('#666');
-  doc.text('Authorized signature', x(330), y(216), { width: 230 });
+  doc.text('Authorized signature', x(FIELD_POSITIONS.signature.x), y(FIELD_POSITIONS.signature.y + 4), {
+    width: FIELD_POSITIONS.signature.width,
+  });
 
   // ---- STUB ---------------------------------------------------------------
   let sy = y(CHECK_HEIGHT + 30);
@@ -194,18 +219,27 @@ export function buildAlignmentTestPdf(
     doc.fontSize(8).fillColor(GREEN);
     doc.text('CHECK REGION — top 3.5"', 50 + dx, CHECK_HEIGHT - 16 + dy);
 
-    const boxes: [number, number, number, number, string][] = [
-      [430, 62, 120, 20, 'date'],
-      [90, 106, 380, 20, 'payee'],
-      [470, 106, 90, 20, 'amount'],
-      [50, 140, 450, 20, 'legal amount'],
-      [330, 200, 230, 16, 'signature line'],
+    // Alignment guide boxes derived from FIELD_POSITIONS. The y-values and
+    // heights are calibration-specific (guide presentation), not the draw coordinates.
+    interface AlignmentBox {
+      label: string;
+      x: number;
+      alignY: number;
+      width: number;
+      height: number;
+    }
+    const alignmentBoxes: AlignmentBox[] = [
+      { label: 'date', x: FIELD_POSITIONS.date.x, alignY: 62, width: FIELD_POSITIONS.date.width, height: 20 },
+      { label: 'payee', x: FIELD_POSITIONS.payee.x, alignY: 106, width: FIELD_POSITIONS.payee.width, height: 20 },
+      { label: 'amount', x: FIELD_POSITIONS.amount.x, alignY: 106, width: FIELD_POSITIONS.amount.width, height: 20 },
+      { label: 'legal amount', x: FIELD_POSITIONS.legalAmount.x, alignY: 140, width: FIELD_POSITIONS.legalAmount.width, height: 20 },
+      { label: 'signature line', x: FIELD_POSITIONS.signature.x, alignY: 200, width: FIELD_POSITIONS.signature.width, height: 16 },
     ];
     doc.lineWidth(0.5).strokeColor('#c0392b');
-    for (const [bx, by, bw, bh, label] of boxes) {
-      doc.rect(bx + dx, by + dy, bw, bh).stroke();
+    for (const box of alignmentBoxes) {
+      doc.rect(box.x + dx, box.alignY + dy, box.width, box.height).stroke();
       doc.fontSize(6).fillColor('#c0392b');
-      doc.text(label, bx + dx + 2, by + dy - 8);
+      doc.text(box.label, box.x + dx + 2, box.alignY + dy - 8);
     }
 
     doc.end();
