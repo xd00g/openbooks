@@ -64,22 +64,22 @@ export default function Attachments({ entityType, entityId }: { entityType: stri
 
   return (
     <div>
-      {err && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-      <ul className="mb-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+      {err && <div className="mb-3 rounded-md bg-owed/5 px-3 py-2 text-sm text-owed">{err}</div>}
+      <ul className="mb-4 divide-y divide-rule rounded-lg border border-rule">
         {(list.data ?? []).map((a: any) => (
           <li key={a.id} className="flex items-center justify-between px-3 py-2 text-sm">
             <span className="truncate">
               {a.filename}
-              <span className="ml-2 text-xs text-slate-400">{date(a.createdAt)}</span>
+              <span className="ml-2 text-xs text-muted">{date(a.createdAt)}</span>
             </span>
-            <button onClick={() => download(a.id)} className="text-slate-600 hover:text-slate-900">Download</button>
+            <button onClick={() => download(a.id)} className="text-muted hover:text-ink">Download</button>
           </li>
         ))}
         {(list.data ?? []).length === 0 && (
-          <li className="px-3 py-3 text-center text-sm text-slate-400">No files yet.</li>
+          <li className="px-3 py-3 text-center text-sm text-muted">No files yet.</li>
         )}
       </ul>
-      <label className="inline-flex cursor-pointer items-center rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+      <label className="inline-flex cursor-pointer items-center rounded-md border border-rule px-3 py-1.5 text-sm font-medium text-ink hover:bg-paper">
         {busy ? 'Uploading…' : 'Upload receipt'}
         <input ref={fileRef} type="file" className="hidden" onChange={onPick} disabled={busy} />
       </label>

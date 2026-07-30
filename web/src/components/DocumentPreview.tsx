@@ -41,21 +41,21 @@ export default function DocumentPreview({ kind, number, issueDate, dueDate, part
   const hasLines = lines.some((l) => (l.name || l.description) && Number(l.unitPrice) > 0);
 
   return (
-    <div className="sticky top-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-slate-400">Live preview</div>
+    <div className="sticky top-4 rounded-xl border border-rule bg-white p-6">
+      <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-muted">Live preview</div>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2">
           {logoUrl && <img src={logoUrl} alt="" className="h-12 w-12 shrink-0 rounded object-contain" />}
           <div>
-            <div className="text-lg font-semibold text-emerald-900">{c.legalName || 'Your Company'}</div>
-            <div className="text-[11px] leading-tight text-slate-500">
+            <div className="text-lg font-semibold text-ink">{c.legalName || 'Your Company'}</div>
+            <div className="text-[11px] leading-tight text-muted">
               {[c.email, formatPhone(c.phone), ...addrLines].filter(Boolean).map((l: string, i: number) => <div key={i}>{l}</div>)}
             </div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xl font-bold tracking-wide text-emerald-900">{kind}</div>
-          <div className="mt-1 text-[11px] text-slate-600">
+          <div className="font-display text-xl font-semibold uppercase tracking-tight text-ink">{kind}</div>
+          <div className="mt-1 text-[11px] text-muted">
             <div>{kind === 'INVOICE' ? 'Invoice' : 'Bill'} #: {number || 'DRAFT'}</div>
             {issueDate && <div>Date: {date(issueDate)}</div>}
             {dueDate && <div>Due: {date(dueDate)}</div>}
@@ -63,21 +63,21 @@ export default function DocumentPreview({ kind, number, issueDate, dueDate, part
         </div>
       </div>
 
-      <div className="my-3 border-t border-slate-200" />
+      <div className="my-3 border-t border-rule" />
 
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{kind === 'INVOICE' ? 'Bill to' : 'Vendor'}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{kind === 'INVOICE' ? 'Bill to' : 'Vendor'}</div>
       {party ? (
         <div className="mt-0.5 text-sm">
-          <div className="font-medium text-slate-800">{party.name}</div>
-          <div className="text-[11px] text-slate-500">{(party.sub ?? []).map((l, i) => <div key={i}>{l}</div>)}</div>
+          <div className="font-medium text-ink">{party.name}</div>
+          <div className="text-[11px] text-muted">{(party.sub ?? []).map((l, i) => <div key={i}>{l}</div>)}</div>
         </div>
       ) : (
-        <div className="mt-0.5 text-sm italic text-slate-300">Select a {kind === 'INVOICE' ? 'customer' : 'vendor'}…</div>
+        <div className="mt-0.5 text-sm italic text-muted">Select a {kind === 'INVOICE' ? 'customer' : 'vendor'}…</div>
       )}
 
       <table className="mt-4 w-full text-[11px]">
         <thead>
-          <tr className="border-b border-slate-200 text-left text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
+          <tr className="border-b border-rule text-left font-display text-eyebrow font-semibold uppercase text-muted">
             <th className="pb-1 font-semibold">Description</th>
             <th className="pb-1 text-right font-semibold">Qty</th>
             <th className="pb-1 text-right font-semibold">Unit</th>
@@ -86,32 +86,32 @@ export default function DocumentPreview({ kind, number, issueDate, dueDate, part
         </thead>
         <tbody>
           {hasLines ? lines.filter((l) => l.name || l.description || Number(l.unitPrice) > 0).map((l, i) => (
-            <tr key={i} className="border-b border-slate-100 align-top">
+            <tr key={i} className="border-b border-rule align-top">
               <td className="py-1.5 pr-2">
-                <div className="font-medium text-slate-800">{l.name || l.description || '—'}</div>
+                <div className="font-medium text-ink">{l.name || l.description || '—'}</div>
                 {l.name && l.description && l.description !== l.name && (
-                  <div className="text-[10px] text-slate-400">{l.description}</div>
+                  <div className="text-[10px] text-muted">{l.description}</div>
                 )}
               </td>
-              <td className="py-1.5 text-right text-slate-600">{l.quantity || '—'}</td>
-              <td className="py-1.5 text-right text-slate-600">{money(l.unitPrice || 0, curr)}</td>
-              <td className="py-1.5 text-right font-medium text-slate-800">{money(l.amount, curr)}</td>
+              <td className="py-1.5 text-right text-muted">{l.quantity || '—'}</td>
+              <td className="py-1.5 text-right text-muted">{money(l.unitPrice || 0, curr)}</td>
+              <td className="py-1.5 text-right font-medium text-ink">{money(l.amount, curr)}</td>
             </tr>
           )) : (
-            <tr><td colSpan={4} className="py-4 text-center italic text-slate-300">Add line items to see them here…</td></tr>
+            <tr><td colSpan={4} className="py-4 text-center italic text-muted">Add line items to see them here…</td></tr>
           )}
         </tbody>
       </table>
 
       <div className="mt-3 flex justify-end">
         <div className="w-40 text-sm">
-          <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{money(subtotal, curr)}</span></div>
-          <div className="flex justify-between text-slate-500"><span>Tax</span><span>{money(taxTotal, curr)}</span></div>
-          <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-800"><span>Total</span><span>{money(total, curr)}</span></div>
+          <div className="flex justify-between text-muted"><span>Subtotal</span><span>{money(subtotal, curr)}</span></div>
+          <div className="flex justify-between text-muted"><span>Tax</span><span>{money(taxTotal, curr)}</span></div>
+          <div className="mt-1 flex justify-between border-t border-rule pt-1 font-semibold text-ink"><span>Total</span><span>{money(total, curr)}</span></div>
         </div>
       </div>
 
-      {memo && <div className="mt-4 text-[11px] text-slate-500">Notes: {memo}</div>}
+      {memo && <div className="mt-4 text-[11px] text-muted">Notes: {memo}</div>}
     </div>
   );
 }

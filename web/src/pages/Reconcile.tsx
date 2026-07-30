@@ -42,15 +42,15 @@ export default function Reconcile() {
         <>
           <Card>
             <div className="flex flex-wrap items-end gap-3">
-              <label className="text-xs text-slate-500">Bank account
-                <select value={bankId} onChange={(e) => setBankId(e.target.value)} className="mt-1 block w-72 rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <label className="text-xs text-muted">Bank account
+                <select value={bankId} onChange={(e) => setBankId(e.target.value)} className="mt-1 block w-72 rounded-md border border-rule px-2 py-1.5 text-sm">
                   <option value="">Select…</option>
                   {banks.map((b: any) => <option key={b.id} value={b.id}>{b.institution ?? b.account?.name ?? b.id}</option>)}
                 </select>
               </label>
-              <label className="text-xs text-slate-500">Statement date<input type="date" value={form.statementDate} onChange={(e) => setForm({ ...form, statementDate: e.target.value })} className="mt-1 block rounded-md border border-slate-300 px-2 py-1" /></label>
-              <label className="text-xs text-slate-500">Beginning balance<input value={form.beginningBalance} onChange={(e) => setForm({ ...form, beginningBalance: e.target.value })} className="mt-1 block w-32 rounded-md border border-slate-300 px-2 py-1 text-right" /></label>
-              <label className="text-xs text-slate-500">Ending balance<input value={form.endingBalance} onChange={(e) => setForm({ ...form, endingBalance: e.target.value })} placeholder="0.00" className="mt-1 block w-32 rounded-md border border-slate-300 px-2 py-1 text-right" /></label>
+              <label className="text-xs text-muted">Statement date<input type="date" value={form.statementDate} onChange={(e) => setForm({ ...form, statementDate: e.target.value })} className="mt-1 block rounded-md border border-rule px-2 py-1" /></label>
+              <label className="text-xs text-muted">Beginning balance<input value={form.beginningBalance} onChange={(e) => setForm({ ...form, beginningBalance: e.target.value })} className="mt-1 block w-32 rounded-md border border-rule px-2 py-1 text-right" /></label>
+              <label className="text-xs text-muted">Ending balance<input value={form.endingBalance} onChange={(e) => setForm({ ...form, endingBalance: e.target.value })} placeholder="0.00" className="mt-1 block w-32 rounded-md border border-rule px-2 py-1 text-right" /></label>
               <Button onClick={() => { setErr(''); start.mutate(); }} disabled={!bankId || !form.endingBalance}>Start reconciliation</Button>
             </div>
           </Card>
@@ -63,10 +63,10 @@ export default function Reconcile() {
                     <td className="px-4 py-2">{date(r.statementDate)}</td>
                     <td className="px-4 py-2 text-right">{money(r.beginningBalance)}</td>
                     <td className="px-4 py-2 text-right">{money(r.endingBalance)}</td>
-                    <td className="px-4 py-2 capitalize text-slate-500">{String(r.status).replace(/_/g, ' ')}</td>
+                    <td className="px-4 py-2 capitalize text-muted">{String(r.status).replace(/_/g, ' ')}</td>
                   </tr>
                 ))}
-                {recs.data && recs.data.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-400">No reconciliations yet.</td></tr>}
+                {recs.data && recs.data.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">No reconciliations yet.</td></tr>}
               </Table>
             </div>
           )}

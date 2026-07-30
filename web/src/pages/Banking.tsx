@@ -88,8 +88,8 @@ export default function Banking() {
       ) : (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-slate-500">Account:</span>
-            <select value={accountId} onChange={(e) => setSelected(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+            <span className="text-sm text-muted">Account:</span>
+            <select value={accountId} onChange={(e) => setSelected(e.target.value)} className="rounded-md border border-rule px-2 py-1 text-sm">
               {(bankAccounts.data ?? []).map((b: any) => (
                 <option key={b.id} value={b.id}>{b.account.code} {b.account.name}{b.mask ? ` ••${b.mask}` : ''}</option>
               ))}
@@ -115,7 +115,7 @@ export default function Banking() {
                 value={csv}
                 onChange={(e) => setCsv(e.target.value)}
                 placeholder={'Date,Amount,Description\n2026-07-01,100.00,Deposit\n2026-07-02,-40.00,Coffee'}
-                className="h-28 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-xs"
+                className="h-28 w-full rounded-md border border-rule px-2 py-1 font-mono text-xs"
               />
               <div className="mt-2"><Button onClick={() => importCsv.mutate()} disabled={!csv.trim()}>Import</Button></div>
             </Card>
@@ -123,13 +123,13 @@ export default function Banking() {
             <Card title="Reconciliation">
               {active ? (
                 <div className="text-sm">
-                  <div className="mb-2 text-slate-600">Statement ending <b>{money(active.endingBalance)}</b> · {date(active.statementDate)}</div>
+                  <div className="mb-2 text-muted">Statement ending <b>{money(active.endingBalance)}</b> · {date(active.statementDate)}</div>
                   {summary.data && (
                     <dl className="space-y-1">
-                      <div className="flex justify-between"><span className="text-slate-500">Beginning</span><span>{money(summary.data.beginningBalance)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Cleared ({summary.data.clearedCount})</span><span>{money(summary.data.clearedNet)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted">Beginning</span><span>{money(summary.data.beginningBalance)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted">Cleared ({summary.data.clearedCount})</span><span>{money(summary.data.clearedNet)}</span></div>
                       <div className="flex justify-between font-medium"><span>Computed ending</span><span>{money(summary.data.computedEnding)}</span></div>
-                      <div className={`flex justify-between font-semibold ${summary.data.balanced ? 'text-emerald-600' : 'text-red-600'}`}>
+                      <div className={`flex justify-between font-semibold ${summary.data.balanced ? 'text-balance' : 'text-owed'}`}>
                         <span>Difference</span><span>{money(summary.data.difference)}</span>
                       </div>
                     </dl>
@@ -140,10 +140,10 @@ export default function Banking() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <label className="text-xs text-slate-500">Statement date<input type="date" value={start.statementDate} onChange={(e) => setStart({ ...start, statementDate: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1" /></label>
+                  <label className="text-xs text-muted">Statement date<input type="date" value={start.statementDate} onChange={(e) => setStart({ ...start, statementDate: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1" /></label>
                   <div />
-                  <label className="text-xs text-slate-500">Beginning balance<input value={start.beginningBalance} onChange={(e) => setStart({ ...start, beginningBalance: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1" /></label>
-                  <label className="text-xs text-slate-500">Ending balance<input value={start.endingBalance} onChange={(e) => setStart({ ...start, endingBalance: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1" /></label>
+                  <label className="text-xs text-muted">Beginning balance<input value={start.beginningBalance} onChange={(e) => setStart({ ...start, beginningBalance: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1" /></label>
+                  <label className="text-xs text-muted">Ending balance<input value={start.endingBalance} onChange={(e) => setStart({ ...start, endingBalance: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1" /></label>
                   <div className="col-span-2 mt-1"><Button onClick={() => startRecon.mutate()} disabled={!start.endingBalance}>Start reconciliation</Button></div>
                 </div>
               )}
@@ -163,13 +163,13 @@ export default function Banking() {
                   )}
                   <td className="px-4 py-2">{date(t.postedDate)}</td>
                   <td className="px-4 py-2">{t.description}</td>
-                  <td className={`px-4 py-2 text-right ${Number(t.amount) < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{money(t.amount)}</td>
-                  <td className="px-4 py-2 capitalize text-slate-500">{t.status}</td>
+                  <td className={`px-4 py-2 text-right ${Number(t.amount) < 0 ? 'text-owed' : 'text-balance'}`}>{money(t.amount)}</td>
+                  <td className="px-4 py-2 capitalize text-muted">{t.status}</td>
                 </tr>
               );
             })}
             {(txns.data ?? []).length === 0 && (
-              <tr><td colSpan={active ? 5 : 4} className="px-4 py-6 text-center text-sm text-slate-400">No transactions. Import a statement above.</td></tr>
+              <tr><td colSpan={active ? 5 : 4} className="px-4 py-6 text-center text-sm text-muted">No transactions. Import a statement above.</td></tr>
             )}
           </Table>
         </>
@@ -231,7 +231,7 @@ function ConnectBank({
           <button
             key={m}
             onClick={() => setMode(m)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === m ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === m ? 'bg-ink text-white' : 'border border-rule text-ink hover:bg-paper'}`}
           >
             {m === 'simplefin' ? 'SimpleFIN (automatic)' : 'Manual (CSV / OFX)'}
           </button>
@@ -240,15 +240,15 @@ function ConnectBank({
 
       {mode === 'simplefin' ? (
         <div className="text-sm">
-          <p className="mb-2 text-slate-500">
+          <p className="mb-2 text-muted">
             Get a setup token from your bank via{' '}
-            <a href="https://bridge.simplefin.org/" target="_blank" rel="noreferrer" className="text-slate-700 underline">SimpleFIN Bridge</a>, then paste it here.
+            <a href="https://bridge.simplefin.org/" target="_blank" rel="noreferrer" className="text-ink underline">SimpleFIN Bridge</a>, then paste it here.
           </p>
           <textarea
             value={token}
             onChange={(e) => setToken(e.target.value)}
             placeholder="Paste SimpleFIN setup token…"
-            className="h-20 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-xs"
+            className="h-20 w-full rounded-md border border-rule px-2 py-1 font-mono text-xs"
           />
           <div className="mt-2">
             <Button onClick={() => claim.mutate()} disabled={!token.trim() || claim.isPending}>
@@ -257,25 +257,25 @@ function ConnectBank({
           </div>
 
           {discovered && discovered.length === 0 && (
-            <p className="mt-3 text-slate-400">No accounts found for that token.</p>
+            <p className="mt-3 text-muted">No accounts found for that token.</p>
           )}
           {discovered && discovered.length > 0 && (
             <div className="mt-4 space-y-2">
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-400">Map each account to a GL account</div>
+              <div className="font-display text-eyebrow font-semibold uppercase text-muted">Map each account to a GL account</div>
               {discovered.map((acct: any) => (
-                <div key={acct.id} className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 p-2">
+                <div key={acct.id} className="flex flex-wrap items-center gap-2 rounded-md border border-rule p-2">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-slate-700">{acct.name}</div>
-                    <div className="text-xs text-slate-400">{acct.org}{acct.balance ? ` · balance ${acct.balance} ${acct.currency ?? ''}` : ''}</div>
+                    <div className="truncate font-medium text-ink">{acct.name}</div>
+                    <div className="text-xs text-muted">{acct.org}{acct.balance ? ` · balance ${acct.balance} ${acct.currency ?? ''}` : ''}</div>
                   </div>
                   {linked[acct.id] ? (
-                    <span className="text-xs font-medium text-emerald-600">✓ Linked</span>
+                    <span className="text-xs font-medium text-balance">✓ Linked</span>
                   ) : (
                     <>
                       <select
                         value={mapping[acct.id] ?? ''}
                         onChange={(e) => setMapping((m) => ({ ...m, [acct.id]: e.target.value }))}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                        className="rounded-md border border-rule px-2 py-1 text-sm"
                       >
                         <option value="">GL account…</option>
                         {bankGl.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
@@ -290,12 +290,12 @@ function ConnectBank({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <select value={newBank.accountId} onChange={(e) => setNewBank({ ...newBank, accountId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+          <select value={newBank.accountId} onChange={(e) => setNewBank({ ...newBank, accountId: e.target.value })} className="col-span-2 rounded-md border border-rule px-2 py-1">
             <option value="">GL bank/credit-card account…</option>
             {bankGl.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
           </select>
-          <input value={newBank.institution} onChange={(e) => setNewBank({ ...newBank, institution: e.target.value })} placeholder="Institution" className="rounded-md border border-slate-300 px-2 py-1" />
-          <input value={newBank.mask} onChange={(e) => setNewBank({ ...newBank, mask: e.target.value })} placeholder="Last 4" className="rounded-md border border-slate-300 px-2 py-1" />
+          <input value={newBank.institution} onChange={(e) => setNewBank({ ...newBank, institution: e.target.value })} placeholder="Institution" className="rounded-md border border-rule px-2 py-1" />
+          <input value={newBank.mask} onChange={(e) => setNewBank({ ...newBank, mask: e.target.value })} placeholder="Last 4" className="rounded-md border border-rule px-2 py-1" />
           <div className="col-span-2"><Button onClick={() => createBank.mutate()} disabled={!newBank.accountId}>Link account</Button></div>
         </div>
       )}

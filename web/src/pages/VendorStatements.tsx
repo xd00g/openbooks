@@ -48,7 +48,7 @@ export default function VendorStatements() {
     <Page title="Vendor Statements">
       <Banner text={err} />
       <Card>
-        <select value={vendorId} onChange={(e) => { setVendorId(e.target.value); setPay(null); }} className="w-80 rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+        <select value={vendorId} onChange={(e) => { setVendorId(e.target.value); setPay(null); }} className="w-80 rounded-md border border-rule px-2 py-1.5 text-sm">
           <option value="">Select a vendor…</option>
           {(vendors.data ?? []).map((x: any) => <option key={x.id} value={x.id}>{x.displayName}</option>)}
         </select>
@@ -59,12 +59,12 @@ export default function VendorStatements() {
           <Card>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="text-lg font-semibold text-slate-800">{v.companyName || v.displayName}</div>
-                <div className="text-xs text-slate-500">{[v.email, v.phone].filter(Boolean).join(' · ')}</div>
+                <div className="text-lg font-semibold text-ink">{v.companyName || v.displayName}</div>
+                <div className="text-xs text-muted">{[v.email, v.phone].filter(Boolean).join(' · ')}</div>
               </div>
               <div className="text-right">
-                <div className="text-xs uppercase tracking-wide text-slate-400">Balance owed</div>
-                <div className="text-2xl font-bold text-slate-800">{money(stmt.data.balance)}</div>
+                <div className="text-xs uppercase tracking-wide text-muted">Balance owed</div>
+                <div className="text-2xl font-bold text-ink">{money(stmt.data.balance)}</div>
               </div>
               {stmt.data.openBills.length > 0 && <Button onClick={openPay}>Record payment</Button>}
             </div>
@@ -73,22 +73,22 @@ export default function VendorStatements() {
           {pay && (
             <Card title="Record payment">
               <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-4">
-                <label className="text-xs text-slate-500">Date
-                  <input type="date" value={pay.paymentDate} onChange={(e) => setPay({ ...pay, paymentDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+                <label className="text-xs text-muted">Date
+                  <input type="date" value={pay.paymentDate} onChange={(e) => setPay({ ...pay, paymentDate: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
                 </label>
-                <label className="text-xs text-slate-500 sm:col-span-2">Pay from
-                  <select value={pay.bankAccountId} onChange={(e) => setPay({ ...pay, bankAccountId: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1">
+                <label className="text-xs text-muted sm:col-span-2">Pay from
+                  <select value={pay.bankAccountId} onChange={(e) => setPay({ ...pay, bankAccountId: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1">
                     <option value="">Select account…</option>
                     {moneyAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
                   </select>
                 </label>
-                <label className="text-xs text-slate-500">Reference #
-                  <input value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} placeholder="Check # / confirmation" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+                <label className="text-xs text-muted">Reference #
+                  <input value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} placeholder="Check # / confirmation" className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
                 </label>
               </div>
 
               <div className="mt-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Apply to open bills</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted">Apply to open bills</div>
                 <Table head={['Bill', 'Due', 'Balance', 'Amount to pay']}>
                   {stmt.data.openBills.map((b: any) => (
                     <tr key={b.id}>
@@ -96,7 +96,7 @@ export default function VendorStatements() {
                       <td className="px-4 py-2">{b.dueDate ? date(b.dueDate) : '—'}</td>
                       <td className="px-4 py-2 text-right">{money(b.balanceDue)}</td>
                       <td className="px-4 py-2 text-right">
-                        <input value={pay.amounts[b.id] ?? ''} onChange={(e) => setPay({ ...pay, amounts: { ...pay.amounts, [b.id]: e.target.value } })} className="w-28 rounded-md border border-slate-300 px-2 py-1 text-right" />
+                        <input value={pay.amounts[b.id] ?? ''} onChange={(e) => setPay({ ...pay, amounts: { ...pay.amounts, [b.id]: e.target.value } })} className="w-28 rounded-md border border-rule px-2 py-1 text-right" />
                       </td>
                     </tr>
                   ))}
@@ -104,7 +104,7 @@ export default function VendorStatements() {
               </div>
 
               <div className="mt-3 flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-800">Total payment: {money(payTotal)}</div>
+                <div className="text-sm font-semibold text-ink">Total payment: {money(payTotal)}</div>
                 <div className="flex gap-2">
                   <Button variant="ghost" onClick={() => setPay(null)}>Cancel</Button>
                   <Button onClick={() => recordPayment.mutate()} disabled={!pay.bankAccountId || payTotal <= 0}>Submit payment</Button>
@@ -119,13 +119,13 @@ export default function VendorStatements() {
                 <tr key={`${r.kind}-${r.id}`}>
                   <td className="px-4 py-2">{date(r.date)}</td>
                   <td className="px-4 py-2">{r.ref}</td>
-                  <td className="px-4 py-2 capitalize text-slate-500">{r.kind}</td>
+                  <td className="px-4 py-2 capitalize text-muted">{r.kind}</td>
                   <td className="px-4 py-2 text-right">{r.charge ? money(r.charge) : ''}</td>
-                  <td className="px-4 py-2 text-right text-emerald-700">{r.payment ? money(r.payment) : ''}</td>
+                  <td className="px-4 py-2 text-right tnum">{r.payment ? money(r.payment) : ''}</td>
                   <td className="px-4 py-2 text-right font-medium">{money(r.balance)}</td>
                 </tr>
               ))}
-              {stmt.data.rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">No activity for this vendor yet.</td></tr>}
+              {stmt.data.rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-muted">No activity for this vendor yet.</td></tr>}
             </Table>
           </div>
         </>

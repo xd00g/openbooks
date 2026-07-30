@@ -151,23 +151,23 @@ export default function Sales() {
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_540px] 2xl:grid-cols-[minmax(0,1fr)_620px]">
         <Card title={editingId ? 'Edit invoice' : 'New invoice'}>
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-            <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="sm:col-span-2 rounded-md border border-slate-300 px-2 py-1">
+            <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="sm:col-span-2 rounded-md border border-rule px-2 py-1">
               <option value="">Select customer…</option>
               {(customers.data ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.displayName}</option>)}
             </select>
-            <select value={inv.paymentTermId} onChange={(e) => setInv({ ...inv, paymentTermId: e.target.value })} className="col-span-2 rounded-md border border-slate-300 px-2 py-1">
+            <select value={inv.paymentTermId} onChange={(e) => setInv({ ...inv, paymentTermId: e.target.value })} className="col-span-2 rounded-md border border-rule px-2 py-1">
               <option value="">Payment term (sets due date)…</option>
               {(terms.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} — net {t.dueInDays}d</option>)}
             </select>
-            <label className="text-xs text-slate-500">Invoice date
-              <input type="date" value={inv.issueDate} onChange={(e) => setInv({ ...inv, issueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Invoice date
+              <input type="date" value={inv.issueDate} onChange={(e) => setInv({ ...inv, issueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
-            <label className="text-xs text-slate-500">Due date {inv.paymentTermId ? '(auto from term)' : '(optional)'}
-              <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Due date {inv.paymentTermId ? '(auto from term)' : '(optional)'}
+              <input type="date" value={inv.dueDate} onChange={(e) => setInv({ ...inv, dueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
           </div>
 
-          <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
+          <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
             <div className="sm:col-span-3">Product / service</div>
             <div className="sm:col-span-3">Income account</div>
             <div className="sm:col-span-3">Description</div>
@@ -177,44 +177,44 @@ export default function Sales() {
           </div>
           <div className="mt-1 space-y-2">
             {lines.map((l, i) => (
-              <div key={i} className="rounded-md border border-slate-200 p-2">
+              <div key={i} className="rounded-md border border-rule p-2">
                 <div className="grid grid-cols-12 gap-1.5 text-sm">
-                  <select value={l.itemId} onChange={(e) => pickProduct(i, e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Product / service">
+                  <select value={l.itemId} onChange={(e) => pickProduct(i, e.target.value)} className="col-span-12 rounded-md border border-rule px-2 py-1 sm:col-span-3" title="Product / service">
                     <option value="">Product/service…</option>
                     {(products.data ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
-                  <select value={l.accountId} onChange={(e) => setLine(i, 'accountId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Income account">
+                  <select value={l.accountId} onChange={(e) => setLine(i, 'accountId', e.target.value)} className="col-span-12 rounded-md border border-rule px-2 py-1 sm:col-span-3" title="Income account">
                     <option value="">Income account…</option>
                     {incomeAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
                   </select>
-                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-6 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" />
-                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
-                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-4 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
-                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" title="Sales tax">
+                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-6 rounded-md border border-rule px-2 py-1 sm:col-span-3" />
+                  <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-rule px-2 py-1 text-right sm:col-span-1" />
+                  <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-4 rounded-md border border-rule px-2 py-1 text-right sm:col-span-1" />
+                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-12 rounded-md border border-rule px-2 py-1 sm:col-span-1" title="Sales tax">
                     <option value="">No sales tax</option>
                     {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
                   </select>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-                  <span className="font-medium text-slate-700">{money(lineTotal(l))}</span>
-                  {lines.length > 1 && <button onClick={() => rmLine(i)} className="text-red-500 hover:underline">Remove</button>}
+                <div className="mt-1 flex items-center justify-between text-xs text-muted">
+                  <span className="font-medium text-ink">{money(lineTotal(l))}</span>
+                  {lines.length > 1 && <button onClick={() => rmLine(i)} className="text-owed hover:underline">Remove</button>}
                 </div>
               </div>
             ))}
-            <button onClick={addLine} className="text-xs font-medium text-emerald-700 hover:underline">+ Add line item</button>
+            <button onClick={addLine} className="text-xs font-medium text-ink hover:underline">+ Add line item</button>
           </div>
 
-          <input value={inv.memo} onChange={(e) => setInv({ ...inv, memo: e.target.value })} placeholder="Notes (appear on the PDF)" className="mt-3 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+          <input value={inv.memo} onChange={(e) => setInv({ ...inv, memo: e.target.value })} placeholder="Notes (appear on the PDF)" className="mt-3 w-full rounded-md border border-rule px-2 py-1 text-sm" />
 
-          <div className="mt-4 flex flex-col items-end gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mt-4 flex flex-col items-end gap-3 border-t border-rule pt-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex items-center gap-2">
-              {editingId && <button onClick={resetForm} className="text-xs text-slate-500 hover:underline">Cancel edit</button>}
+              {editingId && <button onClick={resetForm} className="text-xs text-muted hover:underline">Cancel edit</button>}
               <Button onClick={() => saveInvoice.mutate()} disabled={!inv.customerId || !lines.some((l) => l.accountId && l.unitPrice)}>{editingId ? 'Save changes' : 'Create draft'}</Button>
             </div>
-            <div className="w-full max-w-[220px] rounded-lg bg-slate-50 p-3 text-sm">
-              <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{money(subtotal)}</span></div>
-              <div className="flex justify-between text-slate-500"><span>Tax</span><span>{money(taxTotal)}</span></div>
-              <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-base font-semibold text-slate-800"><span>Total</span><span>{money(subtotal + taxTotal)}</span></div>
+            <div className="w-full max-w-[220px] rounded-lg bg-paper p-3 text-sm">
+              <div className="flex justify-between text-muted"><span>Subtotal</span><span>{money(subtotal)}</span></div>
+              <div className="flex justify-between text-muted"><span>Tax</span><span>{money(taxTotal)}</span></div>
+              <div className="mt-1 flex justify-between border-t border-rule pt-1 text-base font-semibold text-ink"><span>Total</span><span>{money(subtotal + taxTotal)}</span></div>
             </div>
           </div>
         </Card>
@@ -233,7 +233,7 @@ export default function Sales() {
       </div>
 
       <div className="mb-2 flex items-center justify-between">
-        <div className="text-sm font-medium text-slate-600">Invoices</div>
+        <div className="text-sm font-medium text-muted">Invoices</div>
         <SearchInput value={invQ} onChange={setInvQ} placeholder="Search invoices…" />
       </div>
       <div className="max-h-[440px] overflow-y-auto rounded-xl">
@@ -246,7 +246,7 @@ export default function Sales() {
             <tr key={i.id}>
               <td className="px-4 py-2 font-medium">{i.number}</td>
               <td className="px-4 py-2">{i.customerName}</td>
-              <td className="px-4 py-2 capitalize text-slate-500">{i.status.replace(/_/g, ' ')}</td>
+              <td className="px-4 py-2 capitalize text-muted">{i.status.replace(/_/g, ' ')}</td>
               <td className="px-4 py-2 text-right">{money(i.total, i.currency)}</td>
               <td className="px-4 py-2 text-right">{money(i.balanceDue, i.currency)}</td>
               <td className="px-4 py-2 text-right">
@@ -271,7 +271,7 @@ export default function Sales() {
             </tr>
           ))}
           {invoiceRows.length === 0 && (
-            <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">{invQ.trim() ? 'No matches.' : 'No invoices yet.'}</td></tr>
+            <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-muted">{invQ.trim() ? 'No matches.' : 'No invoices yet.'}</td></tr>
           )}
         </Table>
       </div>

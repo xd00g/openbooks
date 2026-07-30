@@ -128,20 +128,20 @@ export default function Expenses() {
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_540px] 2xl:grid-cols-[minmax(0,1fr)_620px]">
         <Card title={editingId ? 'Edit bill' : 'New bill'}>
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-            <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2">
+            <select value={bill.vendorId} onChange={(e) => setBill({ ...bill, vendorId: e.target.value })} className="rounded-md border border-rule px-2 py-1 sm:col-span-2">
               <option value="">Select vendor…</option>
               {(vendors.data ?? []).map((v: any) => <option key={v.id} value={v.id}>{v.displayName}</option>)}
             </select>
-            <input value={bill.number} onChange={(e) => setBill({ ...bill, number: e.target.value })} placeholder="Vendor ref # (optional)" className="rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" />
-            <label className="text-xs text-slate-500">Bill date
-              <input type="date" value={bill.issueDate} onChange={(e) => setBill({ ...bill, issueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <input value={bill.number} onChange={(e) => setBill({ ...bill, number: e.target.value })} placeholder="Vendor ref # (optional)" className="rounded-md border border-rule px-2 py-1 sm:col-span-2" />
+            <label className="text-xs text-muted">Bill date
+              <input type="date" value={bill.issueDate} onChange={(e) => setBill({ ...bill, issueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
-            <label className="text-xs text-slate-500">Due date (optional)
-              <input type="date" value={bill.dueDate} onChange={(e) => setBill({ ...bill, dueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Due date (optional)
+              <input type="date" value={bill.dueDate} onChange={(e) => setBill({ ...bill, dueDate: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
           </div>
 
-          <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
+          <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-muted sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
             <div className="sm:col-span-3">Product / service</div>
             <div className="sm:col-span-3">Expense account</div>
             <div className="sm:col-span-4">Description</div>
@@ -150,36 +150,36 @@ export default function Expenses() {
           </div>
           <div className="mt-1 space-y-2">
             {blines.map((l, i) => (
-              <div key={i} className="rounded-md border border-slate-200 p-2">
+              <div key={i} className="rounded-md border border-rule p-2">
                 <div className="grid grid-cols-12 gap-1.5 text-sm">
-                  <select value={l.itemId} onChange={(e) => pickProduct(i, e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Product / service">
+                  <select value={l.itemId} onChange={(e) => pickProduct(i, e.target.value)} className="col-span-12 rounded-md border border-rule px-2 py-1 sm:col-span-3" title="Product / service">
                     <option value="">Product/service…</option>
                     {(products.data ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
-                  <select value={l.accountId} onChange={(e) => setBline(i, 'accountId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" title="Expense account">
+                  <select value={l.accountId} onChange={(e) => setBline(i, 'accountId', e.target.value)} className="col-span-12 rounded-md border border-rule px-2 py-1 sm:col-span-3" title="Expense account">
                     <option value="">Expense account…</option>
                     {expenseAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
                   </select>
-                  <input value={l.description} onChange={(e) => setBline(i, 'description', e.target.value)} placeholder="Description" className="col-span-8 rounded-md border border-slate-300 px-2 py-1 sm:col-span-4" />
-                  <input value={l.quantity} onChange={(e) => setBline(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
-                  <input value={l.unitPrice} onChange={(e) => setBline(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
+                  <input value={l.description} onChange={(e) => setBline(i, 'description', e.target.value)} placeholder="Description" className="col-span-8 rounded-md border border-rule px-2 py-1 sm:col-span-4" />
+                  <input value={l.quantity} onChange={(e) => setBline(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-rule px-2 py-1 text-right sm:col-span-1" />
+                  <input value={l.unitPrice} onChange={(e) => setBline(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-2 rounded-md border border-rule px-2 py-1 text-right sm:col-span-1" />
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-                  <span className="font-medium text-slate-700">{money(parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'))}</span>
-                  {blines.length > 1 && <button onClick={() => rmBline(i)} className="text-red-500 hover:underline">Remove</button>}
+                <div className="mt-1 flex items-center justify-between text-xs text-muted">
+                  <span className="font-medium text-ink">{money(parseAmount(l.quantity || '0') * parseAmount(l.unitPrice || '0'))}</span>
+                  {blines.length > 1 && <button onClick={() => rmBline(i)} className="text-owed hover:underline">Remove</button>}
                 </div>
               </div>
             ))}
-            <button onClick={addBline} className="text-xs font-medium text-emerald-700 hover:underline">+ Add line item</button>
+            <button onClick={addBline} className="text-xs font-medium text-ink hover:underline">+ Add line item</button>
           </div>
 
-          <div className="mt-4 flex flex-col items-end gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mt-4 flex flex-col items-end gap-3 border-t border-rule pt-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex items-center gap-2">
-              {editingId && <button onClick={resetBillForm} className="text-xs text-slate-500 hover:underline">Cancel edit</button>}
+              {editingId && <button onClick={resetBillForm} className="text-xs text-muted hover:underline">Cancel edit</button>}
               <Button onClick={() => saveBill.mutate()} disabled={!bill.vendorId || !blines.some((l) => l.accountId && l.unitPrice)}>{editingId ? 'Save changes' : 'Create draft'}</Button>
             </div>
-            <div className="w-full max-w-[220px] rounded-lg bg-slate-50 p-3 text-sm">
-              <div className="flex justify-between border-t border-slate-200 pt-1 text-base font-semibold text-slate-800"><span>Total</span><span>{money(billTotal)}</span></div>
+            <div className="w-full max-w-[220px] rounded-lg bg-paper p-3 text-sm">
+              <div className="flex justify-between border-t border-rule pt-1 text-base font-semibold text-ink"><span>Total</span><span>{money(billTotal)}</span></div>
             </div>
           </div>
         </Card>
@@ -197,7 +197,7 @@ export default function Expenses() {
       </div>
 
       <div className="mb-2 flex items-center justify-between">
-        <div className="text-sm font-medium text-slate-600">Bills</div>
+        <div className="text-sm font-medium text-muted">Bills</div>
         <SearchInput value={billQ} onChange={setBillQ} placeholder="Search bills…" />
       </div>
       <div className="max-h-[440px] overflow-y-auto rounded-xl">
@@ -210,7 +210,7 @@ export default function Expenses() {
             <tr key={b.id}>
               <td className="px-4 py-2 font-medium">{b.number || '—'}</td>
               <td className="px-4 py-2">{b.vendorName}</td>
-              <td className="px-4 py-2 capitalize text-slate-500">{b.status.replace(/_/g, ' ')}</td>
+              <td className="px-4 py-2 capitalize text-muted">{b.status.replace(/_/g, ' ')}</td>
               <td className="px-4 py-2 text-right">{money(b.total, b.currency)}</td>
               <td className="px-4 py-2 text-right">{money(b.balanceDue, b.currency)}</td>
               <td className="px-4 py-2 text-right">
@@ -233,7 +233,7 @@ export default function Expenses() {
             </tr>
           ))}
           {billRows.length === 0 && (
-            <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">{billQ.trim() ? 'No matches.' : 'No bills yet.'}</td></tr>
+            <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-muted">{billQ.trim() ? 'No matches.' : 'No bills yet.'}</td></tr>
           )}
         </Table>
       </div>

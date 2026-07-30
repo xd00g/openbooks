@@ -28,11 +28,11 @@ function AddMemberRow({ companyId, users, roles, onAdd }: { companyId: string; u
   const [r, setR] = useState('');
   return (
     <div className="mt-2 flex items-center gap-2 text-sm">
-      <select value={u} onChange={(e) => setU(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1">
+      <select value={u} onChange={(e) => setU(e.target.value)} className="rounded-md border border-rule px-2 py-1">
         <option value="">Add user…</option>
         {users.map((x) => <option key={x.id} value={x.id}>{x.email}</option>)}
       </select>
-      <select value={r} onChange={(e) => setR(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1">
+      <select value={r} onChange={(e) => setR(e.target.value)} className="rounded-md border border-rule px-2 py-1">
         <option value="">Role…</option>
         {roles.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
       </select>
@@ -96,7 +96,7 @@ export default function Admin() {
       <Banner text={err} />
       <div className="mb-4 flex gap-2">
         {(['members', 'users', 'companies', 'roles', 'audit', ...(can('system:manage') ? ['system'] : [])] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${tab === t ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}>{t === 'members' ? 'Members (this co.)' : t}</button>
+          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize ${tab === t ? 'bg-ink text-white' : 'border border-rule text-ink hover:bg-paper'}`}>{t === 'members' ? 'Members (this co.)' : t}</button>
         ))}
       </div>
 
@@ -104,16 +104,16 @@ export default function Admin() {
         <>
           <Card title="Add member">
             <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
-              <input value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} placeholder="email" className="rounded-md border border-slate-300 px-2 py-1" />
-              <select value={member.roleId} onChange={(e) => setMember({ ...member, roleId: e.target.value })} className="rounded-md border border-slate-300 px-2 py-1">
+              <input value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} placeholder="email" className="rounded-md border border-rule px-2 py-1" />
+              <select value={member.roleId} onChange={(e) => setMember({ ...member, roleId: e.target.value })} className="rounded-md border border-rule px-2 py-1">
                 <option value="">Role…</option>
                 {(roles.data ?? []).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-              <input value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} placeholder="Full name (new user)" className="rounded-md border border-slate-300 px-2 py-1" />
-              <input value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} placeholder="Temp password (new local user)" className="rounded-md border border-slate-300 px-2 py-1" />
+              <input value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} placeholder="Full name (new user)" className="rounded-md border border-rule px-2 py-1" />
+              <input value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} placeholder="Temp password (new local user)" className="rounded-md border border-rule px-2 py-1" />
             </div>
             <div className="mt-3"><Button onClick={() => addMember.mutate()} disabled={!member.email || !member.roleId}>Add / update member</Button></div>
-            <p className="mt-2 text-xs text-slate-400">Existing users (or SSO users who've signed in) are linked by email. Provide a temp password to create a new local user.</p>
+            <p className="mt-2 text-xs text-muted">Existing users (or SSO users who've signed in) are linked by email. Provide a temp password to create a new local user.</p>
           </Card>
           <div className="mt-4">
             <Table head={['Email', 'Name', 'Role', 'Auth', 'Active']}>
@@ -122,15 +122,15 @@ export default function Admin() {
                   <td className="px-4 py-2 font-medium">{m.user.email}</td>
                   <td className="px-4 py-2">{m.user.fullName || '—'}</td>
                   <td className="px-4 py-2">
-                    <select value={m.role.id} onChange={(e) => setRole(m.user.id, e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
+                    <select value={m.role.id} onChange={(e) => setRole(m.user.id, e.target.value)} className="rounded-md border border-rule px-2 py-1 text-sm">
                       {(roles.data ?? []).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                   </td>
-                  <td className="px-4 py-2 text-slate-500">{m.user.authProvider}</td>
+                  <td className="px-4 py-2 text-muted">{m.user.authProvider}</td>
                   <td className="px-4 py-2">{m.user.isActive ? '✓' : '—'}</td>
                 </tr>
               ))}
-              {(members.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No members.</td></tr>}
+              {(members.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">No members.</td></tr>}
             </Table>
           </div>
         </>
@@ -140,12 +140,12 @@ export default function Admin() {
         <>
           <Card title="Create user">
             <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
-              <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="email" className="rounded-md border border-slate-300 px-2 py-1" />
-              <input value={newUser.fullName} onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })} placeholder="Full name" className="rounded-md border border-slate-300 px-2 py-1" />
-              <input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="Password (min 8)" className="rounded-md border border-slate-300 px-2 py-1" />
+              <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="email" className="rounded-md border border-rule px-2 py-1" />
+              <input value={newUser.fullName} onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })} placeholder="Full name" className="rounded-md border border-rule px-2 py-1" />
+              <input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="Password (min 8)" className="rounded-md border border-rule px-2 py-1" />
             </div>
             <div className="mt-3"><Button onClick={() => createUser.mutate()} disabled={!newUser.email || newUser.password.length < 8}>Create user</Button></div>
-            <p className="mt-2 text-xs text-slate-400">Creates a global user. Grant them access to company files with “Manage access”.</p>
+            <p className="mt-2 text-xs text-muted">Creates a global user. Grant them access to company files with “Manage access”.</p>
           </Card>
           <div className="mt-4">
             <Table head={['Email', 'Name', 'Active', 'Company access', '']}>
@@ -156,8 +156,8 @@ export default function Admin() {
                   <td className="px-4 py-2"><button onClick={() => toggleActive(u)} className="text-xs hover:underline">{u.isActive ? 'Active' : 'Inactive'}</button></td>
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap gap-1">
-                      {u.memberships.map((m: any) => <span key={m.companyId} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{m.company}: {m.role}</span>)}
-                      {u.memberships.length === 0 && <span className="text-xs text-slate-400">none</span>}
+                      {u.memberships.map((m: any) => <span key={m.companyId} className="rounded bg-paper px-1.5 py-0.5 text-xs">{m.company}: {m.role}</span>)}
+                      {u.memberships.length === 0 && <span className="text-xs text-muted">none</span>}
                     </div>
                   </td>
                   <td className="px-4 py-2 text-right">
@@ -168,7 +168,7 @@ export default function Admin() {
                   </td>
                 </tr>
               ))}
-              {(orgUsers.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No users.</td></tr>}
+              {(orgUsers.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">No users.</td></tr>}
             </Table>
           </div>
         </>
@@ -178,16 +178,16 @@ export default function Admin() {
         <div className="space-y-4">
           {(orgCompanies.data ?? []).map((c: any) => (
             <Card key={c.id} title={c.legalName}>
-              <div className="mb-2 text-xs text-slate-400">{c.baseCurrency} · created {date(c.createdAt)} · {c.members.length} member(s)</div>
+              <div className="mb-2 text-xs text-muted">{c.baseCurrency} · created {date(c.createdAt)} · {c.members.length} member(s)</div>
               <Table head={['User', 'Role', '']}>
                 {c.members.map((m: any) => (
                   <tr key={m.userId}>
                     <td className="px-4 py-2">{m.email}{m.fullName ? ` (${m.fullName})` : ''}</td>
                     <td className="px-4 py-2">{m.role}</td>
-                    <td className="px-4 py-2 text-right"><button onClick={() => unassign(m.userId, c.id)} className="text-xs text-red-500 hover:underline">Remove</button></td>
+                    <td className="px-4 py-2 text-right"><button onClick={() => unassign(m.userId, c.id)} className="text-xs text-owed hover:underline">Remove</button></td>
                   </tr>
                 ))}
-                {c.members.length === 0 && <tr><td colSpan={3} className="px-4 py-4 text-center text-xs text-slate-400">No one has access.</td></tr>}
+                {c.members.length === 0 && <tr><td colSpan={3} className="px-4 py-4 text-center text-xs text-muted">No one has access.</td></tr>}
               </Table>
               <AddMemberRow companyId={c.id} users={orgUsers.data ?? []} roles={orgRoles.data ?? []} onAdd={assign} />
             </Card>
@@ -207,7 +207,7 @@ export default function Admin() {
                 return (
                   <div key={c.id} className="flex items-center justify-between gap-3">
                     <span>{c.legalName}</span>
-                    <select value={m?.roleId ?? ''} onChange={(e) => { const rid = e.target.value; rid ? assign(u.id, c.id, rid) : unassign(u.id, c.id); }} className="rounded-md border border-slate-300 px-2 py-1">
+                    <select value={m?.roleId ?? ''} onChange={(e) => { const rid = e.target.value; rid ? assign(u.id, c.id, rid) : unassign(u.id, c.id); }} className="rounded-md border border-rule px-2 py-1">
                       <option value="">No access</option>
                       {(orgRoles.data ?? []).map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
@@ -223,7 +223,7 @@ export default function Admin() {
       {tab === 'roles' && (
         <>
           <Card title="Create role">
-            <input value={role.name} onChange={(e) => setRole2({ ...role, name: e.target.value })} placeholder="Role name" className="mb-3 w-full max-w-xs rounded-md border border-slate-300 px-2 py-1 text-sm" />
+            <input value={role.name} onChange={(e) => setRole2({ ...role, name: e.target.value })} placeholder="Role name" className="mb-3 w-full max-w-xs rounded-md border border-rule px-2 py-1 text-sm" />
             <div className="grid grid-cols-2 gap-1 text-sm sm:grid-cols-3">
               {PERMISSIONS.map((p) => (
                 <label key={p} className="flex items-center gap-2">
@@ -239,8 +239,8 @@ export default function Admin() {
               {(roles.data ?? []).map((r: any) => (
                 <tr key={r.id}>
                   <td className="px-4 py-2 font-medium">{r.name}</td>
-                  <td className="px-4 py-2 text-xs text-slate-500">{r.permissions.join(', ')}</td>
-                  <td className="px-4 py-2 text-slate-500">{r.organizationId ? 'Organization' : 'System template'}</td>
+                  <td className="px-4 py-2 text-xs text-muted">{r.permissions.join(', ')}</td>
+                  <td className="px-4 py-2 text-muted">{r.organizationId ? 'Organization' : 'System template'}</td>
                 </tr>
               ))}
             </Table>
@@ -253,13 +253,13 @@ export default function Admin() {
           {(audit.data ?? []).map((a: any) => (
             <tr key={a.id}>
               <td className="px-4 py-2">{date(a.createdAt)}</td>
-              <td className="px-4 py-2 text-slate-500">{a.actorUserId || '—'}</td>
+              <td className="px-4 py-2 text-muted">{a.actorUserId || '—'}</td>
               <td className="px-4 py-2">{a.action}</td>
               <td className="px-4 py-2">{a.tableName}</td>
-              <td className="px-4 py-2 text-slate-500">{a.recordId || '—'}</td>
+              <td className="px-4 py-2 text-muted">{a.recordId || '—'}</td>
             </tr>
           ))}
-          {(audit.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">No audit entries yet.</td></tr>}
+          {(audit.data ?? []).length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-muted">No audit entries yet.</td></tr>}
         </Table>
       )}
 
@@ -273,13 +273,13 @@ function SystemSettings({ onError }: { onError: (m: string) => void }) {
   const q = useQuery({ queryKey: ['system-settings'], queryFn: () => api.get('/system/settings') });
   const invalidate = () => qc.invalidateQueries({ queryKey: ['system-settings'] });
 
-  if (q.isLoading) return <div className="text-sm text-slate-400">Loading…</div>;
-  if (q.error) return <div className="text-sm text-red-600">{(q.error as Error).message}</div>;
+  if (q.isLoading) return <div className="text-sm text-muted">Loading…</div>;
+  if (q.error) return <div className="text-sm text-owed">{(q.error as Error).message}</div>;
   const d = q.data;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Deployment-level settings. These apply to the whole OpenBooks instance, not a single company.
         Environment variables still act as the fallback for any field left blank here.
       </p>
@@ -290,17 +290,17 @@ function SystemSettings({ onError }: { onError: (m: string) => void }) {
   );
 }
 
-const inp = 'w-full rounded-md border border-slate-300 px-3 py-2 text-sm';
+const inp = 'w-full rounded-md border border-rule px-3 py-2 text-sm';
 function Field({ label, children }: { label: string; children: any }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block font-medium text-slate-600">{label}</span>
+      <span className="mb-1 block font-medium text-muted">{label}</span>
       {children}
     </label>
   );
 }
 function StatusPill({ ok }: { ok: boolean }) {
-  return <span className={`text-xs font-medium ${ok ? 'text-emerald-600' : 'text-slate-400'}`}>{ok ? '● Configured' : '○ Not configured'}</span>;
+  return <span className={`text-xs font-medium ${ok ? 'text-balance' : 'text-muted'}`}>{ok ? '● Configured' : '○ Not configured'}</span>;
 }
 
 function OidcCard({ data, onSaved, onError }: { data: any; onSaved: () => void; onError: (m: string) => void }) {
@@ -358,15 +358,15 @@ function SmtpCard({ data, onSaved, onError }: { data: any; onSaved: () => void; 
         <Field label="From email"><input className={inp} value={f.fromEmail} onChange={(e) => setF({ ...f, fromEmail: e.target.value })} placeholder="noreply@example.com" /></Field>
         <Field label="From name"><input className={inp} value={f.fromName} onChange={(e) => setF({ ...f, fromName: e.target.value })} /></Field>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+      <label className="mt-3 flex items-center gap-2 text-sm text-muted">
         <input type="checkbox" checked={f.secure} onChange={(e) => setF({ ...f, secure: e.target.checked })} /> Use TLS (secure) connection
       </label>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button onClick={() => save.mutate()}>Save SMTP</Button>
-        <span className="mx-2 text-slate-300">|</span>
-        <input className="rounded-md border border-slate-300 px-2 py-1 text-sm" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@example.com" />
+        <span className="mx-2 text-muted">|</span>
+        <input className="rounded-md border border-rule px-2 py-1 text-sm" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@example.com" />
         <Button variant="ghost" onClick={() => test.mutate()} disabled={!testTo.trim() || test.isPending}>{test.isPending ? 'Sending…' : 'Send test'}</Button>
-        {testMsg && <span className="text-sm text-emerald-600">{testMsg}</span>}
+        {testMsg && <span className="text-sm text-balance">{testMsg}</span>}
       </div>
     </Card>
   );

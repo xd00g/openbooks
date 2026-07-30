@@ -103,37 +103,37 @@ export default function Registers() {
       <Banner text={err} />
       <Card>
         <div className="flex flex-wrap items-center gap-3">
-          <select value={acctId} onChange={(e) => setAcctId(e.target.value)} className="w-80 rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+          <select value={acctId} onChange={(e) => setAcctId(e.target.value)} className="w-80 rounded-md border border-rule px-2 py-1.5 text-sm">
             <option value="">Select an account…</option>
             {options.map((a: any) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
           </select>
-          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
             <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
             Show all accounts (not just bank / credit card)
           </label>
           <Button variant="ghost" onClick={() => { setErr(''); setNewAcct({ ...emptyNewAcct }); }}>+ New account</Button>
-          {reg.data && <span className="ml-auto text-sm text-slate-500">Balance: <b className="text-slate-800">{money(reg.data.balance)}</b></span>}
+          {reg.data && <span className="ml-auto text-sm text-muted">Balance: <b className="text-ink">{money(reg.data.balance)}</b></span>}
           {acctId && <Button variant="ghost" onClick={() => { setErr(''); setImp({ content: '', categoryAccountId: '' }); }}>Import CSV/OFX</Button>}
           {acctId && <Button onClick={() => { setErr(''); setTx(emptyTx); }}>Add transaction</Button>}
         </div>
 
         {acctId && MONEY_SUBTYPES.includes(all.find((a: any) => a.id === acctId)?.subtype) && (
           isLinked(acctId) ? (
-            <div className="mt-2 text-xs text-emerald-700">✓ Linked for reconciliation — this account appears under Banking → Reconcile.</div>
+            <div className="mt-2 text-xs text-balance">✓ Linked for reconciliation — this account appears under Banking → Reconcile.</div>
           ) : (
-            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border-l-2 border-rule bg-paper px-3 py-2 text-xs text-muted">
               <span>Not linked for reconciliation yet — Reconcile won't see this account until it is.</span>
               <button onClick={() => setLinkFor({ institution: '', mask: '' })} className="font-medium underline">Link now</button>
             </div>
           )
         )}
         {linkFor && (
-          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-2 text-sm">
-            <label className="text-xs text-slate-500">Institution (optional)
-              <input value={linkFor.institution} onChange={(e) => setLinkFor({ ...linkFor, institution: e.target.value })} className="mt-1 block w-40 rounded-md border border-slate-300 px-2 py-1" />
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-rule p-2 text-sm">
+            <label className="text-xs text-muted">Institution (optional)
+              <input value={linkFor.institution} onChange={(e) => setLinkFor({ ...linkFor, institution: e.target.value })} className="mt-1 block w-40 rounded-md border border-rule px-2 py-1" />
             </label>
-            <label className="text-xs text-slate-500">Last 4 (optional)
-              <input value={linkFor.mask} onChange={(e) => setLinkFor({ ...linkFor, mask: e.target.value })} maxLength={4} className="mt-1 block w-20 rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Last 4 (optional)
+              <input value={linkFor.mask} onChange={(e) => setLinkFor({ ...linkFor, mask: e.target.value })} maxLength={4} className="mt-1 block w-20 rounded-md border border-rule px-2 py-1" />
             </label>
             <Button variant="ghost" onClick={() => setLinkFor(null)}>Cancel</Button>
             <Button onClick={() => linkForReconciliation.mutate()}>Link</Button>
@@ -153,39 +153,39 @@ export default function Registers() {
               <tr key={r.id}>
                 <td className="px-4 py-2 whitespace-nowrap">{date(r.date)}</td>
                 <td className="px-4 py-2">{r.memo || '—'}</td>
-                <td className="px-4 py-2 text-xs capitalize text-slate-400">{String(r.source).replace(/_/g, ' ')}</td>
+                <td className="px-4 py-2 text-xs capitalize text-muted">{String(r.source).replace(/_/g, ' ')}</td>
                 <td className="px-4 py-2 text-right">{Number(r.debit) ? money(r.debit) : ''}</td>
                 <td className="px-4 py-2 text-right">{Number(r.credit) ? money(r.credit) : ''}</td>
                 <td className="px-4 py-2 text-right font-medium">{money(r.balance)}</td>
                 <td className="px-4 py-2 text-right"><Button variant="ghost" onClick={() => setReceiptFor(r.journalEntryId)}>Receipt</Button></td>
               </tr>
             ))}
-            {reg.data && regRows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-slate-400">{txQ.trim() ? 'No matches.' : 'No posted activity yet — add a transaction to get started.'}</td></tr>}
+            {reg.data && regRows.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-muted">{txQ.trim() ? 'No matches.' : 'No posted activity yet — add a transaction to get started.'}</td></tr>}
           </Table>
         </div>
       )}
 
       {newAcct && (
         <Modal title="New account" onClose={() => setNewAcct(null)}>
-          <p className="mb-2 text-xs text-slate-500">Creates a chart-of-accounts entry and links it for bank reconciliation in one step.</p>
+          <p className="mb-2 text-xs text-muted">Creates a chart-of-accounts entry and links it for bank reconciliation in one step.</p>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <label className="text-xs text-slate-500">Name
-              <input value={newAcct.name} onChange={(e) => setNewAcct({ ...newAcct, name: e.target.value })} placeholder="e.g. Business Checking" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Name
+              <input value={newAcct.name} onChange={(e) => setNewAcct({ ...newAcct, name: e.target.value })} placeholder="e.g. Business Checking" className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
-            <label className="text-xs text-slate-500">Account code
-              <input value={newAcct.code} onChange={(e) => setNewAcct({ ...newAcct, code: e.target.value })} placeholder="e.g. 1010" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Account code
+              <input value={newAcct.code} onChange={(e) => setNewAcct({ ...newAcct, code: e.target.value })} placeholder="e.g. 1010" className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
-            <label className="text-xs text-slate-500">Type
-              <select value={newAcct.subtype} onChange={(e) => setNewAcct({ ...newAcct, subtype: e.target.value })} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1">
+            <label className="text-xs text-muted">Type
+              <select value={newAcct.subtype} onChange={(e) => setNewAcct({ ...newAcct, subtype: e.target.value })} className="mt-1 block w-full rounded-md border border-rule px-2 py-1">
                 <option value="bank">Bank account</option>
                 <option value="credit_card">Credit card</option>
               </select>
             </label>
-            <label className="text-xs text-slate-500">Institution (optional)
-              <input value={newAcct.institution} onChange={(e) => setNewAcct({ ...newAcct, institution: e.target.value })} placeholder="e.g. Chase" className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Institution (optional)
+              <input value={newAcct.institution} onChange={(e) => setNewAcct({ ...newAcct, institution: e.target.value })} placeholder="e.g. Chase" className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
-            <label className="text-xs text-slate-500">Last 4 (optional)
-              <input value={newAcct.mask} onChange={(e) => setNewAcct({ ...newAcct, mask: e.target.value })} maxLength={4} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1" />
+            <label className="text-xs text-muted">Last 4 (optional)
+              <input value={newAcct.mask} onChange={(e) => setNewAcct({ ...newAcct, mask: e.target.value })} maxLength={4} className="mt-1 block w-full rounded-md border border-rule px-2 py-1" />
             </label>
           </div>
           <div className="mt-4 flex justify-end gap-2">
@@ -198,21 +198,21 @@ export default function Registers() {
       {tx && (
         <Modal title="Add transaction" onClose={() => setTx(null)}>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <label className="text-xs text-slate-500">Date<input type="date" value={tx.date} onChange={(e) => setTx({ ...tx, date: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1" /></label>
-            <label className="text-xs text-slate-500">Direction
-              <select value={tx.direction} onChange={(e) => setTx({ ...tx, direction: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1">
+            <label className="text-xs text-muted">Date<input type="date" value={tx.date} onChange={(e) => setTx({ ...tx, date: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1" /></label>
+            <label className="text-xs text-muted">Direction
+              <select value={tx.direction} onChange={(e) => setTx({ ...tx, direction: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1">
                 <option value="outflow">Money out (payment/charge)</option>
                 <option value="inflow">Money in (deposit)</option>
               </select>
             </label>
-            <label className="text-xs text-slate-500">Amount<input value={tx.amount} onChange={(e) => setTx({ ...tx, amount: e.target.value })} placeholder="0.00" className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-right" /></label>
-            <label className="text-xs text-slate-500">Category account
-              <select value={tx.categoryAccountId} onChange={(e) => setTx({ ...tx, categoryAccountId: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1">
+            <label className="text-xs text-muted">Amount<input value={tx.amount} onChange={(e) => setTx({ ...tx, amount: e.target.value })} placeholder="0.00" className="mt-1 w-full rounded-md border border-rule px-2 py-1 text-right" /></label>
+            <label className="text-xs text-muted">Category account
+              <select value={tx.categoryAccountId} onChange={(e) => setTx({ ...tx, categoryAccountId: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1">
                 <option value="">Select category…</option>
                 {all.filter((a: any) => a.id !== acctId).map((a: any) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
               </select>
             </label>
-            <label className="col-span-2 text-xs text-slate-500">Memo<input value={tx.memo} onChange={(e) => setTx({ ...tx, memo: e.target.value })} placeholder="Description" className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1" /></label>
+            <label className="col-span-2 text-xs text-muted">Memo<input value={tx.memo} onChange={(e) => setTx({ ...tx, memo: e.target.value })} placeholder="Description" className="mt-1 w-full rounded-md border border-rule px-2 py-1" /></label>
           </div>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setTx(null)}>Cancel</Button>
@@ -223,11 +223,11 @@ export default function Registers() {
 
       {imp && (
         <Modal title="Import transactions (CSV or OFX/QFX)" onClose={() => setImp(null)}>
-          <p className="mb-2 text-xs text-slate-500">Upload or paste a bank / credit-card export. CSV needs <code>date</code>, <code>amount</code> (signed) and <code>description</code> columns — separate debit/credit columns work too. Money in = deposit; money out = payment.</p>
+          <p className="mb-2 text-xs text-muted">Upload or paste a bank / credit-card export. CSV needs <code>date</code>, <code>amount</code> (signed) and <code>description</code> columns — separate debit/credit columns work too. Money in = deposit; money out = payment.</p>
           <input type="file" accept=".csv,.ofx,.qfx,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = () => setImp((s) => (s ? { ...s, content: String(r.result ?? '') } : s)); r.readAsText(f); } }} className="mb-2 text-sm" />
-          <textarea value={imp.content} onChange={(e) => setImp({ ...imp, content: e.target.value })} placeholder="…or paste CSV / OFX here" className="h-28 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-xs" />
-          <label className="mt-2 block text-xs text-slate-500">Category account for these transactions (reclassify later as needed)
-            <select value={imp.categoryAccountId} onChange={(e) => setImp({ ...imp, categoryAccountId: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm">
+          <textarea value={imp.content} onChange={(e) => setImp({ ...imp, content: e.target.value })} placeholder="…or paste CSV / OFX here" className="h-28 w-full rounded-md border border-rule px-2 py-1 font-mono text-xs" />
+          <label className="mt-2 block text-xs text-muted">Category account for these transactions (reclassify later as needed)
+            <select value={imp.categoryAccountId} onChange={(e) => setImp({ ...imp, categoryAccountId: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1 text-sm">
               <option value="">Select category…</option>
               {all.filter((a: any) => a.id !== acctId).map((a: any) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
             </select>

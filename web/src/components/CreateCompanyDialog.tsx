@@ -67,20 +67,20 @@ export default function CreateCompanyDialog({
     }
   };
 
-  const field = 'w-full rounded-md border border-slate-300 px-3 py-2 text-sm';
+  const field = 'w-full rounded-md border border-rule px-3 py-2 text-sm';
 
   return (
     <Modal title={firstRun ? 'Create your first company' : 'New company'} onClose={onClose}>
       {firstRun && (
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-4 text-sm text-muted">
           Welcome to OpenBooks! Set up a company to start keeping its books. You
           can add more companies later.
         </p>
       )}
-      {err && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="mb-3 rounded-md bg-owed/5 px-3 py-2 text-sm text-owed">{err}</div>}
       <div className="space-y-3">
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Company legal name</span>
+          <span className="mb-1 block font-medium text-muted">Company legal name</span>
           <input
             autoFocus
             value={form.legalName}
@@ -91,8 +91,8 @@ export default function CreateCompanyDialog({
         </label>
         {!hasOrg && (
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-slate-600">
-              Organization name <span className="font-normal text-slate-400">(optional)</span>
+            <span className="mb-1 block font-medium text-muted">
+              Organization name <span className="font-normal text-muted">(optional)</span>
             </span>
             <input
               value={form.organizationName}
@@ -104,7 +104,7 @@ export default function CreateCompanyDialog({
         )}
         <div className="grid grid-cols-2 gap-3">
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-slate-600">Base currency</span>
+            <span className="mb-1 block font-medium text-muted">Base currency</span>
             <input
               value={form.baseCurrency}
               onChange={(e) => setForm({ ...form, baseCurrency: e.target.value.toUpperCase().slice(0, 3) })}
@@ -112,7 +112,7 @@ export default function CreateCompanyDialog({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-slate-600">Country</span>
+            <span className="mb-1 block font-medium text-muted">Country</span>
             <input
               value={form.country}
               onChange={(e) => setForm({ ...form, country: e.target.value.toUpperCase().slice(0, 2) })}
@@ -121,8 +121,8 @@ export default function CreateCompanyDialog({
           </label>
         </div>
 
-        <details className="rounded-md border border-slate-200 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-slate-600">More details (optional)</summary>
+        <details className="rounded-md border border-rule p-3">
+          <summary className="cursor-pointer text-sm font-medium text-muted">More details (optional)</summary>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             {([
               ['dba', 'DBA / trade name'], ['ein', 'EIN / Tax ID (encrypted)'],
@@ -131,14 +131,14 @@ export default function CreateCompanyDialog({
               ['city', 'City'], ['region', 'State / Region'], ['postalCode', 'Postal code'],
             ] as [keyof typeof form, string][]).map(([k, label]) => (
               <label key={k} className="block">
-                <span className="mb-1 block text-xs text-slate-500">{label}</span>
+                <span className="mb-1 block text-xs text-muted">{label}</span>
                 <input type={k === 'phone' ? 'tel' : 'text'} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })}
                   onBlur={k === 'phone' ? (e) => setForm({ ...form, phone: formatPhone(e.target.value) }) : undefined}
                   className={field} />
               </label>
             ))}
             <label className="block">
-              <span className="mb-1 block text-xs text-slate-500">Fiscal year start month (1–12)</span>
+              <span className="mb-1 block text-xs text-muted">Fiscal year start month (1–12)</span>
               <input value={form.fiscalYearStartMonth} onChange={(e) => setForm({ ...form, fiscalYearStartMonth: e.target.value.replace(/\D/g, '').slice(0, 2) })} className={field} />
             </label>
           </div>

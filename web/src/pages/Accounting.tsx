@@ -97,7 +97,7 @@ export default function Accounting() {
       title="Chart of Accounts"
       actions={
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
@@ -107,33 +107,33 @@ export default function Accounting() {
       }
     >
       <Banner text={err} />
-      {!editable && <div className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">You have read-only access to the chart of accounts.</div>}
+      {!editable && <div className="mb-4 rounded-md border-l-2 border-rule bg-paper px-3 py-2 text-sm text-muted">You have read-only access to the chart of accounts.</div>}
 
-      {q.isLoading && <div className="text-sm text-slate-400">Loading…</div>}
+      {q.isLoading && <div className="text-sm text-muted">Loading…</div>}
 
       <div className="space-y-6">
         {TYPE_ORDER.filter((t) => byType[t]?.length).map((t) => (
           <div key={t}>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{t}</h2>
+            <h2 className="mb-2 font-display text-eyebrow font-semibold uppercase text-muted">{t}</h2>
             <Table head={editable ? ['Code', 'Name', 'Subtype', 'Status', ''] : ['Code', 'Name', 'Subtype', 'Status']}>
               {byType[t].map((a) => (
                 <tr key={a.id} className={a.isActive ? '' : 'opacity-50'}>
-                  <td className="px-4 py-2 text-slate-500">{a.code}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-muted">{a.code}</td>
                   <td className="px-4 py-2">
-                    {a.parentId && <span className="text-slate-300">↳ </span>}
+                    {a.parentId && <span className="text-muted">↳ </span>}
                     {a.name}
-                    {a.isSystem && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase text-slate-500">System</span>}
+                    {a.isSystem && <span className="ml-2 rounded bg-paper px-1.5 py-0.5 text-[10px] uppercase text-muted">System</span>}
                   </td>
-                  <td className="px-4 py-2 text-slate-500">{subtypeLabel(a.subtype)}</td>
-                  <td className="px-4 py-2 text-xs">{a.isActive ? <span className="text-emerald-600">Active</span> : <span className="text-slate-400">Inactive</span>}</td>
+                  <td className="px-4 py-2 text-muted">{subtypeLabel(a.subtype)}</td>
+                  <td className="px-4 py-2 text-xs">{a.isActive ? <span className="text-ink">Active</span> : <span className="text-muted">Inactive</span>}</td>
                   {editable && (
                     <td className="px-4 py-2 text-right">
                       <div className="flex justify-end gap-2 text-xs">
-                        <button onClick={() => setEditing(a)} className="text-slate-600 hover:text-slate-900">Edit</button>
-                        <button onClick={() => toggleActive(a)} disabled={a.isSystem && a.isActive} className="text-slate-600 hover:text-slate-900 disabled:opacity-30">
+                        <button onClick={() => setEditing(a)} className="text-muted hover:text-ink">Edit</button>
+                        <button onClick={() => toggleActive(a)} disabled={a.isSystem && a.isActive} className="text-muted hover:text-ink disabled:opacity-30">
                           {a.isActive ? 'Deactivate' : 'Activate'}
                         </button>
-                        {!a.isSystem && <button onClick={() => remove(a)} className="text-red-500 hover:text-red-700">Delete</button>}
+                        {!a.isSystem && <button onClick={() => remove(a)} className="text-owed hover:underline">Delete</button>}
                       </div>
                     </td>
                   )}
@@ -214,7 +214,7 @@ function AccountForm({
     onError: (e: any) => onError(e.message),
   });
 
-  const field = 'w-full rounded-md border border-slate-300 px-3 py-2 text-sm';
+  const field = 'w-full rounded-md border border-rule px-3 py-2 text-sm';
   const lockType = isEdit && account!.isSystem;
 
   return (
@@ -222,16 +222,16 @@ function AccountForm({
       <div className="space-y-3">
         <div className="grid grid-cols-3 gap-3">
           <label className="col-span-1 block text-sm">
-            <span className="mb-1 block font-medium text-slate-600">Code</span>
+            <span className="mb-1 block font-medium text-muted">Code</span>
             <input value={form.code} disabled={lockType} onChange={(e) => setForm({ ...form, code: e.target.value })} className={field} />
           </label>
           <label className="col-span-2 block text-sm">
-            <span className="mb-1 block font-medium text-slate-600">Name</span>
+            <span className="mb-1 block font-medium text-muted">Name</span>
             <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={field} />
           </label>
         </div>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Type</span>
+          <span className="mb-1 block font-medium text-muted">Type</span>
           <select
             value={form.subtype}
             disabled={lockType}
@@ -246,18 +246,18 @@ function AccountForm({
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Parent account <span className="font-normal text-slate-400">(optional — for sub-accounts / cost codes)</span></span>
+          <span className="mb-1 block font-medium text-muted">Parent account <span className="font-normal text-muted">(optional — for sub-accounts / cost codes)</span></span>
           <select value={form.parentId} onChange={(e) => setForm({ ...form, parentId: e.target.value })} className={field}>
             <option value="">None (top-level)</option>
             {parentOptions.map((a) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Description <span className="font-normal text-slate-400">(optional)</span></span>
+          <span className="mb-1 block font-medium text-muted">Description <span className="font-normal text-muted">(optional)</span></span>
           <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={field} />
         </label>
       </div>
-      {lockType && <p className="mt-3 text-xs text-slate-400">This is a system account — its code and type are protected, but you can rename it and set a parent.</p>}
+      {lockType && <p className="mt-3 text-xs text-muted">This is a system account — its code and type are protected, but you can rename it and set a parent.</p>}
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => save.mutate()} disabled={!form.code.trim() || !form.name.trim()}>

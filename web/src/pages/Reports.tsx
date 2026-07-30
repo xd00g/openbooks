@@ -51,22 +51,22 @@ export default function Reports() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === t.key ? 'bg-slate-900 text-white' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === t.key ? 'bg-ink text-white' : 'border border-rule text-ink hover:bg-paper'}`}
           >
             {t.label}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2 text-sm">
           {tab === 'income-statement' && (
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1" />
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-md border border-rule px-2 py-1" />
           )}
-          <span className="text-slate-400">{tab === 'income-statement' ? 'to' : 'as of'}</span>
-          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1" />
+          <span className="text-muted">{tab === 'income-statement' ? 'to' : 'as of'}</span>
+          <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="rounded-md border border-rule px-2 py-1" />
         </div>
       </div>
 
-      {q.isLoading && <div className="text-sm text-slate-400">Loading…</div>}
-      {q.error && <div className="text-sm text-red-600">{(q.error as Error).message}</div>}
+      {q.isLoading && <div className="text-sm text-muted">Loading…</div>}
+      {q.error && <div className="text-sm text-owed">{(q.error as Error).message}</div>}
       {q.data && tab === 'trial-balance' && <TrialBalance d={q.data} />}
       {q.data && tab === 'income-statement' && <IncomeStatement d={q.data} />}
       {q.data && tab === 'balance-sheet' && <BalanceSheet d={q.data} />}
@@ -76,7 +76,7 @@ export default function Reports() {
 }
 
 function Badge({ ok }: { ok: boolean }) {
-  return <span className={`ml-2 text-xs ${ok ? 'text-emerald-600' : 'text-red-600'}`}>{ok ? '✓ balanced' : '✗ out of balance'}</span>;
+  return <span className={`ml-2 text-xs ${ok ? 'text-balance' : 'text-owed'}`}>{ok ? '✓ balanced' : '✗ out of balance'}</span>;
 }
 
 function TrialBalance({ d }: { d: any }) {
@@ -84,16 +84,17 @@ function TrialBalance({ d }: { d: any }) {
     <Table head={['Code', 'Account', 'Debit', 'Credit']}>
       {d.lines.map((l: any) => (
         <tr key={l.code}>
-          <td className="px-4 py-2 text-slate-500">{l.code}</td>
+          <td className="px-4 py-2 font-mono text-xs text-muted">{l.code}</td>
           <td className="px-4 py-2">{l.name}</td>
           <td className="px-4 py-2 text-right">{Number(l.debit) ? money(l.debit) : ''}</td>
           <td className="px-4 py-2 text-right">{Number(l.credit) ? money(l.credit) : ''}</td>
         </tr>
       ))}
-      <tr className="font-semibold">
-        <td className="px-4 py-2" colSpan={2}>Totals<Badge ok={d.balanced} /></td>
-        <td className="px-4 py-2 text-right">{money(d.totalDebit)}</td>
-        <td className="px-4 py-2 text-right">{money(d.totalCredit)}</td>
+      {/* Double rule above the totals — the bookkeeper's mark for a final sum. */}
+      <tr className="border-t-[3px] border-double border-ink font-semibold">
+        <td className="px-4 py-2.5" colSpan={2}>Totals<Badge ok={d.balanced} /></td>
+        <td className="px-4 py-2.5 text-right">{money(d.totalDebit)}</td>
+        <td className="px-4 py-2.5 text-right">{money(d.totalCredit)}</td>
       </tr>
     </Table>
   );
@@ -102,12 +103,12 @@ function TrialBalance({ d }: { d: any }) {
 function Section({ title, s }: { title: string; s: any }) {
   return (
     <div className="mb-4">
-      <div className="mb-1 text-sm font-semibold text-slate-700">{title}</div>
-      <div className="rounded-lg border border-slate-200 bg-white">
-        {s.lines.length === 0 && <div className="px-4 py-2 text-sm text-slate-400">—</div>}
+      <div className="mb-1 text-sm font-semibold text-ink">{title}</div>
+      <div className="rounded-lg border border-rule bg-white">
+        {s.lines.length === 0 && <div className="px-4 py-2 text-sm text-muted">—</div>}
         {s.lines.map((l: any, i: number) => (
           <div key={i} className="flex justify-between px-4 py-1.5 text-sm">
-            <span className="text-slate-600">{l.name}</span><span>{money(l.amount)}</span>
+            <span className="text-muted">{l.name}</span><span>{money(l.amount)}</span>
           </div>
         ))}
         <div className="flex justify-between border-t px-4 py-1.5 text-sm font-semibold">
@@ -123,9 +124,9 @@ function IncomeStatement({ d }: { d: any }) {
     <Card>
       <Section title="Income" s={d.revenue} />
       <Section title="Cost of Goods Sold" s={d.costOfGoodsSold} />
-      <div className="mb-4 flex justify-between text-sm font-semibold text-slate-800"><span>Gross profit</span><span>{money(d.grossProfit)}</span></div>
+      <div className="mb-4 flex justify-between text-sm font-semibold text-ink"><span>Gross profit</span><span>{money(d.grossProfit)}</span></div>
       <Section title="Expenses" s={d.expenses} />
-      <div className="flex justify-between text-base font-bold text-slate-900"><span>Net income</span><span>{money(d.netIncome)}</span></div>
+      <div className="flex justify-between text-base font-bold text-ink"><span>Net income</span><span>{money(d.netIncome)}</span></div>
     </Card>
   );
 }
@@ -136,7 +137,7 @@ function BalanceSheet({ d }: { d: any }) {
       <Section title="Assets" s={d.assets} />
       <Section title="Liabilities" s={d.liabilities} />
       <Section title="Equity" s={d.equity} />
-      <div className="flex justify-between text-sm font-bold text-slate-900">
+      <div className="flex justify-between text-sm font-bold text-ink">
         <span>Assets = Liabilities + Equity<Badge ok={d.balanced} /></span>
         <span>{money(d.totalAssets)} = {money(d.totalLiabilitiesAndEquity)}</span>
       </div>

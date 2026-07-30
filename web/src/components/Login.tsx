@@ -37,40 +37,45 @@ export default function Login() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-slate-100">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm"
-      >
-        <h1 className="mb-1 text-xl font-semibold text-slate-800">OpenBooks</h1>
-        <p className="mb-6 text-sm text-slate-500">Sign in to your books</p>
+    <div className="flex h-full items-center justify-center bg-paper px-4">
+      <form onSubmit={submit} className="w-full max-w-sm border border-rule bg-white p-8">
+        {/* The wordmark sits on the debit/credit seam that the whole app is
+            built around — balanced, because a sign-in page has no books yet. */}
+        <h1 className="font-display text-2xl font-semibold uppercase tracking-tight text-ink">OpenBooks</h1>
+        <div className="mt-3 flex h-px w-full">
+          <div className="h-px flex-1 bg-ink" />
+          <div className="h-px flex-1 bg-rule" />
+        </div>
+        <p className="mb-7 mt-3 text-sm text-muted">Sign in to your books.</p>
 
         {error && (
-          <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mb-4 border-l-2 border-owed bg-owed/5 py-2 pl-3 text-sm text-owed">
             {error}
           </div>
         )}
 
-        <label className="mb-1 block text-sm font-medium text-slate-600">Email</label>
+        <label htmlFor="email" className="mb-1.5 block font-display text-eyebrow font-semibold uppercase text-muted">Email</label>
         <input
+          id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mb-4 w-full rounded border border-rule bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none"
           required
         />
-        <label className="mb-1 block text-sm font-medium text-slate-600">Password</label>
+        <label htmlFor="password" className="mb-1.5 block font-display text-eyebrow font-semibold uppercase text-muted">Password</label>
         <input
+          id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-6 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mb-6 w-full rounded border border-rule bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none"
           required
         />
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-md bg-slate-900 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className="w-full rounded bg-ink py-2.5 font-display text-eyebrow font-semibold uppercase text-white transition-opacity hover:opacity-85 disabled:opacity-40"
         >
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
@@ -79,7 +84,7 @@ export default function Login() {
           <button
             type="button"
             onClick={sso}
-            className="mt-3 w-full rounded-md border border-slate-300 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="mt-2 w-full rounded border border-rule py-2.5 font-display text-eyebrow font-semibold uppercase text-ink transition-colors hover:bg-ink hover:text-white"
           >
             Sign in with SSO
           </button>

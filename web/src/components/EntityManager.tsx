@@ -131,24 +131,24 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
               <td key={c.key} className="px-4 py-2">{c.render ? c.render(row) : (row[c.key] ?? '—')}</td>
             ))}
             <td className="px-4 py-2">
-              <button onClick={() => toggleActive(row)} className="text-xs text-slate-500 hover:underline">
+              <button onClick={() => toggleActive(row)} className="text-xs text-muted hover:underline">
                 {row.isActive === false ? 'Inactive' : 'Active'}
               </button>
             </td>
             <td className="px-4 py-2 text-right"><Button variant="ghost" onClick={() => openEdit(row)}>Edit</Button></td>
           </tr>
         ))}
-        {rows.length === 0 && <tr><td colSpan={config.columns.length + 2} className="px-4 py-6 text-center text-sm text-slate-400">{q.trim() ? 'No matches.' : 'None yet.'}</td></tr>}
+        {rows.length === 0 && <tr><td colSpan={config.columns.length + 2} className="px-4 py-6 text-center text-sm text-muted">{q.trim() ? 'No matches.' : 'None yet.'}</td></tr>}
       </Table>
 
       {form && (
         <Modal title={form.id ? `Edit ${config.title.replace(/s$/, '')}` : config.newLabel} onClose={() => setForm(null)}>
           <div className="grid grid-cols-2 gap-2">
             {config.fields.map((fd) => (
-              <label key={fd.key} className={`text-xs text-slate-500 ${fd.full ? 'col-span-2' : ''}`}>
+              <label key={fd.key} className={`text-xs text-muted ${fd.full ? 'col-span-2' : ''}`}>
                 {fd.label}
                 {fd.type === 'select' ? (
-                  <select value={form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm">
+                  <select value={form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1 text-sm">
                     {fd.optionsEndpoint ? (
                       <>
                         <option value="">—</option>
@@ -166,16 +166,16 @@ export default function EntityManager({ config }: { config: EntityConfig }) {
                   <input type={fd.type === 'date' ? 'date' : fd.type === 'phone' ? 'tel' : 'text'} value={form[fd.key]} onChange={(e) => setForm({ ...form, [fd.key]: e.target.value })}
                     onBlur={fd.type === 'phone' ? (e) => setForm({ ...form, [fd.key]: formatPhone(e.target.value) }) : undefined}
                     placeholder={fd.writeOnly && form.id ? '•••• (leave blank to keep)' : ''}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+                    className="mt-1 w-full rounded-md border border-rule px-2 py-1 text-sm" />
                 )}
               </label>
             ))}
             {config.addressKey && (
               <>
-                <div className="col-span-2 mt-1 text-xs font-medium uppercase tracking-wide text-slate-400">{config.addressLabel ?? 'Address'}</div>
+                <div className="col-span-2 mt-1 font-display text-eyebrow font-semibold uppercase text-muted">{config.addressLabel ?? 'Address'}</div>
                 {ADDR.map(([k, label]) => (
-                  <label key={k} className="text-xs text-slate-500">{label}
-                    <input value={form[`addr_${k}`]} onChange={(e) => setForm({ ...form, [`addr_${k}`]: e.target.value })} className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" />
+                  <label key={k} className="text-xs text-muted">{label}
+                    <input value={form[`addr_${k}`]} onChange={(e) => setForm({ ...form, [`addr_${k}`]: e.target.value })} className="mt-1 w-full rounded-md border border-rule px-2 py-1 text-sm" />
                   </label>
                 ))}
               </>

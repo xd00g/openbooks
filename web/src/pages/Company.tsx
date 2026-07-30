@@ -53,24 +53,24 @@ export default function Company() {
   return (
     <Page title="Company" actions={editable ? <Button onClick={() => save.mutate()}>{saved ? 'Saved ✓' : 'Save changes'}</Button> : undefined}>
       <Banner text={err} />
-      {!editable && <div className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">You have read-only access to company settings.</div>}
+      {!editable && <div className="mb-4 rounded-md border-l-2 border-rule bg-paper px-3 py-2 text-sm text-muted">You have read-only access to company settings.</div>}
       <Card title="Company profile">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {FIELDS.map((f) => (
             <label key={f.key} className="text-sm">
-              <span className="mb-1 block font-medium text-slate-600">{f.label}</span>
+              <span className="mb-1 block font-medium text-muted">{f.label}</span>
               <input
                 type={f.key === 'phone' ? 'tel' : f.type ?? 'text'}
                 value={form[f.key] ?? ''}
                 disabled={!editable}
                 onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                 onBlur={f.key === 'phone' ? (e) => setForm({ ...form, phone: formatPhone(e.target.value) }) : undefined}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 disabled:bg-slate-50 disabled:text-slate-500"
+                className="w-full rounded-md border border-rule px-3 py-2 disabled:bg-paper disabled:text-muted"
               />
             </label>
           ))}
         </div>
-        <p className="mt-4 text-xs text-slate-400">
+        <p className="mt-4 text-xs text-muted">
           This information appears on invoices and drives fiscal-year reporting. Sensitive fields (EIN) are stored encrypted at rest.
         </p>
       </Card>
@@ -131,17 +131,17 @@ function Branding({ editable, onError }: { editable: boolean; onError: (m: strin
 
   return (
     <Card title="Branding">
-      {!editable && <p className="mb-3 text-sm text-amber-700">You have read-only access to branding.</p>}
+      {!editable && <p className="mb-3 text-sm text-muted">You have read-only access to branding.</p>}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
-          <div className="mb-2 text-sm font-medium text-slate-600">Palette</div>
+          <div className="mb-2 text-sm font-medium text-muted">Palette</div>
           <div className="space-y-2">
             {THEME_FIELDS.map((f) => (
               <label key={f.key} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-slate-600">{f.label}</span>
+                <span className="text-muted">{f.label}</span>
                 <span className="flex items-center gap-2">
-                  <input type="color" disabled={!editable} value={value(f.key)} onChange={(e) => set(f.key, e.target.value)} className="h-8 w-10 rounded border border-slate-300" />
-                  <input disabled={!editable} value={value(f.key)} onChange={(e) => set(f.key, e.target.value)} className="w-24 rounded-md border border-slate-300 px-2 py-1 font-mono text-xs" />
+                  <input type="color" disabled={!editable} value={value(f.key)} onChange={(e) => set(f.key, e.target.value)} className="h-8 w-10 rounded border border-rule" />
+                  <input disabled={!editable} value={value(f.key)} onChange={(e) => set(f.key, e.target.value)} className="w-24 rounded-md border border-rule px-2 py-1 font-mono text-xs" />
                 </span>
               </label>
             ))}
@@ -155,11 +155,11 @@ function Branding({ editable, onError }: { editable: boolean; onError: (m: strin
         </div>
 
         <div>
-          <div className="mb-2 text-sm font-medium text-slate-600">Logo</div>
-          <p className="mb-2 text-xs text-slate-400">Shown in the app sidebar and on invoices. PNG or SVG, ideally square.</p>
+          <div className="mb-2 text-sm font-medium text-muted">Logo</div>
+          <p className="mb-2 text-xs text-muted">Shown in the app sidebar and on invoices. PNG or SVG, ideally square.</p>
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50">
-              {logo.data?.url ? <img src={logo.data.url} alt="Logo" className="h-full w-full rounded-lg object-contain" /> : <span className="text-xs text-slate-400">None</span>}
+            <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-rule bg-paper">
+              {logo.data?.url ? <img src={logo.data.url} alt="Logo" className="h-full w-full rounded-lg object-contain" /> : <span className="text-xs text-muted">None</span>}
             </div>
             {editable && (
               <div>

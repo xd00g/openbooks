@@ -12,9 +12,9 @@ export interface Theme {
 }
 
 export const DEFAULT_THEME: Required<Theme> = {
-  sidebarBg: '#0f172a', // slate-900
-  sidebarText: '#e2e8f0', // slate-200
-  accent: '#0f172a',
+  sidebarBg: '#16171b', // ink
+  sidebarText: '#e8e7e2',
+  accent: '#16171b',
   accentText: '#ffffff',
 };
 

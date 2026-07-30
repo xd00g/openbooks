@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { money, startOfYear, today } from '../lib/format';
-import { Page, Stat, Card, Empty } from '../components/ui';
+import { Page, Stat, Card, Empty, BalanceSeam } from '../components/ui';
 
 export default function Dashboard() {
   const { companyId } = useAuth();
@@ -40,41 +40,52 @@ export default function Dashboard() {
         <Stat label="A/P outstanding" value={money(ap.data?.grandTotal)} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Profit & Loss (YTD)">
-          {pl.isLoading ? <Muted /> : (
-            <dl className="space-y-1 text-sm">
-              <Row k="Income" v={money(pl.data?.revenue.total)} />
-              <Row k="Cost of goods sold" v={money(pl.data?.costOfGoodsSold.total)} />
-              <Row k="Gross profit" v={money(pl.data?.grossProfit)} bold />
-              <Row k="Expenses" v={money(pl.data?.expenses.total)} />
-              <Row k="Net income" v={money(pl.data?.netIncome)} bold />
-            </dl>
-          )}
-        </Card>
-        <Card title="Balance Sheet">
-          {bs.isLoading ? <Muted /> : (
-            <dl className="space-y-1 text-sm">
-              <Row k="Assets" v={money(bs.data?.totalAssets)} bold />
-              <Row k="Liabilities + Equity" v={money(bs.data?.totalLiabilitiesAndEquity)} bold />
-              <div className="pt-1 text-xs">
-                {bs.data?.balanced
-                  ? <span className="text-emerald-600">✓ In balance</span>
-                  : <span className="text-red-600">✗ Out of balance</span>}
-              </div>
-            </dl>
-          )}
-        </Card>
+      {/* The signature moment: whether the books balance, stated once, large,
+          before any of the detail below it. */}
+      <div className="mb-6 border border-rule bg-white p-5">
+        {bs.isLoading ? <Muted /> : (
+          <>
+            <BalanceSeam
+              debits={Number(bs.data?.totalAssets ?? 0)}
+              credits={Number(bs.data?.totalLiabilitiesAndEquity ?? 0)}
+            />
+            <div className="tnum mt-4 flex justify-between font-display text-figure font-semibold">
+              <span>{money(bs.data?.totalAssets)}</span>
+              <span>{money(bs.data?.totalLiabilitiesAndEquity)}</span>
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-muted">
+              <span>Assets</span>
+              <span>Liabilities + Equity</span>
+            </div>
+          </>
+        )}
       </div>
+
+      <Card title="Profit & Loss (YTD)">
+        {pl.isLoading ? <Muted /> : (
+          <dl className="text-sm">
+            <Row k="Income" v={money(pl.data?.revenue.total)} />
+            <Row k="Cost of goods sold" v={money(pl.data?.costOfGoodsSold.total)} />
+            <Row k="Gross profit" v={money(pl.data?.grossProfit)} rule />
+            <Row k="Expenses" v={money(pl.data?.expenses.total)} />
+            <Row k="Net income" v={money(pl.data?.netIncome)} total />
+          </dl>
+        )}
+      </Card>
     </Page>
   );
 }
 
-const Muted = () => <div className="text-sm text-slate-400">Loading…</div>;
-function Row({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
+const Muted = () => <div className="text-sm text-muted">Loading…</div>;
+
+/** A P&L line. `rule` marks a subtotal (single rule above, as on ruled paper);
+ *  `total` marks the bottom line (double rule, the bookkeeper's convention). */
+function Row({ k, v, rule, total }: { k: string; v: string; rule?: boolean; total?: boolean }) {
+  const emphasis = rule || total ? 'font-semibold text-ink' : 'text-muted';
+  const border = total ? 'mt-1 border-t-[3px] border-double border-ink pt-1.5' : rule ? 'mt-1 border-t border-rule pt-1.5' : '';
   return (
-    <div className={`flex justify-between ${bold ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
-      <span>{k}</span><span>{v}</span>
+    <div className={`flex justify-between py-1 ${emphasis} ${border}`}>
+      <span>{k}</span><span className="tnum">{v}</span>
     </div>
   );
 }

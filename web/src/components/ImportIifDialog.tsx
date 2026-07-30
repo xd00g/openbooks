@@ -40,18 +40,18 @@ export default function ImportIifDialog({
 
   return (
     <Modal title="Import from QuickBooks (IIF)" onClose={onClose}>
-      {err && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      {err && <div className="mb-3 rounded-md bg-owed/5 px-3 py-2 text-sm text-owed">{err}</div>}
 
       {result ? (
         <div className="text-sm">
-          <p className="mb-3 font-medium text-emerald-700">Import complete.</p>
-          <ul className="space-y-1 text-slate-600">
+          <p className="mb-3 font-medium text-balance">Import complete.</p>
+          <ul className="space-y-1 text-muted">
             {['accounts', 'customers', 'vendors', 'employees', 'items', 'paymentTerms'].map((k) => (
               <li key={k} className="capitalize">{k}: {result[k].created} created, {result[k].skipped} skipped</li>
             ))}
           </ul>
           {result.warnings?.length > 0 && (
-            <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <div className="mt-3 rounded-md border-l-2 border-rule bg-paper px-3 py-2 text-xs text-muted">
               {result.warnings.map((w: string, i: number) => <div key={i}>{w}</div>)}
             </div>
           )}
@@ -59,24 +59,24 @@ export default function ImportIifDialog({
         </div>
       ) : (
         <div className="text-sm">
-          <p className="mb-2 text-slate-500">
+          <p className="mb-2 text-muted">
             In QuickBooks Desktop: <b>File → Utilities → Export → Lists to IIF Files</b>, then upload the file here.
           </p>
           <div className="mb-2 flex items-center gap-2">
             <input ref={fileRef} type="file" accept=".iif,.txt,text/plain" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
             <Button variant="ghost" onClick={() => fileRef.current?.click()}>Choose .iif file</Button>
-            <span className="text-xs text-slate-400">or paste below</span>
+            <span className="text-xs text-muted">or paste below</span>
           </div>
           <textarea
             value={content}
             onChange={(e) => { setContent(e.target.value); setPreview(null); }}
             placeholder={'!ACCNT\tNAME\tACCNTTYPE\tACCNUM\nACCNT\tChecking\tBANK\t1000'}
-            className="h-28 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-xs"
+            className="h-28 w-full rounded-md border border-rule px-2 py-1 font-mono text-xs"
           />
 
           {preview && (
-            <div className="mt-3 rounded-md border border-slate-200 p-3">
-              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">Found in file</div>
+            <div className="mt-3 rounded-md border border-rule p-3">
+              <div className="mb-2 font-display text-eyebrow font-semibold uppercase text-muted">Found in file</div>
               <div className="space-y-1">
                 {[
                   { k: 'accounts', label: `Accounts (${preview.counts.accounts})` },
@@ -93,19 +93,19 @@ export default function ImportIifDialog({
                       disabled={(preview.counts as any)[row.k] === 0}
                       onChange={(e) => setSel({ ...sel, [row.k]: e.target.checked })}
                     />
-                    <span className={(preview.counts as any)[row.k] === 0 ? 'text-slate-300' : ''}>{row.label}</span>
+                    <span className={(preview.counts as any)[row.k] === 0 ? 'text-muted' : ''}>{row.label}</span>
                   </label>
                 ))}
               </div>
               {preview.detected && (
-                <div className="mt-3 text-xs text-slate-400">
+                <div className="mt-3 text-xs text-muted">
                   <span className="font-medium">All lists QuickBooks exported:</span>{' '}
                   {Object.entries(preview.detected).map(([t, n]) => `${t} (${n})`).join(', ')}
                   <div className="mt-1 italic">Lists beyond the five above aren’t imported yet and are skipped.</div>
                 </div>
               )}
               {preview.warnings?.length > 0 && (
-                <div className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="mt-2 rounded-md border-l-2 border-rule bg-paper px-3 py-2 text-xs text-muted">
                   {preview.warnings.slice(0, 8).map((w: string, i: number) => <div key={i}>{w}</div>)}
                   {preview.warnings.length > 8 && <div>…and {preview.warnings.length - 8} more.</div>}
                 </div>
