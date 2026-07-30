@@ -148,7 +148,7 @@ export default function Sales() {
     <Page title="Sales">
       <Banner text={err} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_460px] xl:grid-cols-[minmax(0,1fr)_540px] 2xl:grid-cols-[minmax(0,1fr)_620px]">
         <Card title={editingId ? 'Edit invoice' : 'New invoice'}>
           <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <select value={inv.customerId} onChange={(e) => setInv({ ...inv, customerId: e.target.value })} className="sm:col-span-2 rounded-md border border-slate-300 px-2 py-1">
@@ -170,10 +170,10 @@ export default function Sales() {
           <div className="mt-4 hidden text-[11px] font-semibold uppercase tracking-wide text-slate-400 sm:grid sm:grid-cols-12 sm:gap-1.5 sm:px-1">
             <div className="sm:col-span-3">Product / service</div>
             <div className="sm:col-span-3">Income account</div>
-            <div className="sm:col-span-2">Description</div>
+            <div className="sm:col-span-3">Description</div>
             <div className="sm:col-span-1 text-right">Qty</div>
             <div className="sm:col-span-1 text-right">Price</div>
-            <div className="sm:col-span-2">Tax</div>
+            <div className="sm:col-span-1">Tax</div>
           </div>
           <div className="mt-1 space-y-2">
             {lines.map((l, i) => (
@@ -187,10 +187,10 @@ export default function Sales() {
                     <option value="">Income account…</option>
                     {incomeAccounts.map((a: any) => <option key={a.id} value={a.id}>{a.code} {a.name}</option>)}
                   </select>
-                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-6 rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" />
+                  <input value={l.description} onChange={(e) => setLine(i, 'description', e.target.value)} placeholder="Description" className="col-span-6 rounded-md border border-slate-300 px-2 py-1 sm:col-span-3" />
                   <input value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} placeholder="Qty" className="col-span-2 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
                   <input value={l.unitPrice} onChange={(e) => setLine(i, 'unitPrice', e.target.value)} placeholder="Price" className="col-span-4 rounded-md border border-slate-300 px-2 py-1 text-right sm:col-span-1" />
-                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-2" title="Sales tax">
+                  <select value={l.taxRateId} onChange={(e) => setLine(i, 'taxRateId', e.target.value)} className="col-span-12 rounded-md border border-slate-300 px-2 py-1 sm:col-span-1" title="Sales tax">
                     <option value="">No sales tax</option>
                     {(taxRates.data ?? []).filter((t: any) => t.isActive !== false).map((t: any) => <option key={t.id} value={t.id}>{t.name} ({(Number(t.rate) * 100).toFixed(3).replace(/\.?0+$/, '')}%)</option>)}
                   </select>
