@@ -281,3 +281,17 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_journal_entry_closed_period
   BEFORE INSERT OR UPDATE ON journal_entry
   FOR EACH ROW EXECUTE FUNCTION guard_closed_period();
+
+-- ============================================================================
+-- CHECK NUMBERING
+-- Uniqueness is ABSOLUTE and deliberately does NOT exclude voided rows.
+-- Once a number is printed onto paper it is spent, whether that paper was
+-- cashed, jammed, or shredded. Reusing it would put two physical checks with
+-- the same number into circulation, which is ambiguous on a bank statement
+-- and breaks reconciliation. Gaps are expected; voided rows are retained so
+-- the sequence stays auditable.
+-- "check" is a SQL reserved word and must stay quoted.
+-- ============================================================================
+CREATE UNIQUE INDEX IF NOT EXISTS check_number_unique_per_account
+  ON "check" ("companyId", "bankAccountId", "checkNumber")
+  WHERE "checkNumber" IS NOT NULL;

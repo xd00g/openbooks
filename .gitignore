@@ -45,3 +45,6 @@ coverage/
 # database backups
 backup-*.sql.gz
 *.sql.gz
+
+# Subagent-driven-development scratch (ledger, briefs, review packages)
+.superpowers/

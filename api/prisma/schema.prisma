@@ -84,6 +84,7 @@ model Company {
   payrollRuns   PayrollRun[]
   attachments   Attachment[]
   auditLogs     AuditLog[]
+  checks       Check[]
 
   @@index([organizationId])
   @@map("company")
@@ -537,6 +538,7 @@ model Payment {
   customer     Customer?            @relation(fields: [customerId], references: [id])
   vendor       Vendor?              @relation(fields: [vendorId], references: [id])
   applications PaymentApplication[]
+  check        Check?
 
   @@index([companyId, direction])
   @@map("payment")
@@ -560,6 +562,36 @@ model PaymentApplication {
   @@index([invoiceId])
   @@index([billId])
   @@map("payment_application")
+}
+
+/// A physical check printed against a vendor Payment. payeeName and amount are
+/// SNAPSHOTS taken at print time: renaming a vendor later must not rewrite what
+/// was physically printed (spec 4.3).
+model Check {
+  id            String    @id @default(uuid()) @db.Uuid
+  companyId     String    @db.Uuid
+  bankAccountId String    @db.Uuid
+  paymentId     String    @unique @db.Uuid
+  checkNumber   Int?      // null until a print batch assigns one
+  status        String    @default("queued") // queued | printed | voided
+  payeeName     String
+  amount        Decimal   @db.Decimal(19, 4)
+  checkDate     DateTime  @db.Date
+  memo          String?
+  printBatchId  String?   @db.Uuid
+  printedAt     DateTime?
+  voidedAt      DateTime?
+  voidReason    String?   // 'misprint' | free text; distinguishes the two voids
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+  payment     Payment     @relation(fields: [paymentId], references: [id])
+
+  @@index([companyId, bankAccountId, status])
+  @@index([companyId, printBatchId])
+  @@map("check")
 }
 
 // ============================================================================
@@ -670,6 +702,9 @@ model BankAccount {
   lastSyncedAt  DateTime?
   institution   String?
   mask          String?          // last 4
+  nextCheckNumber Int?
+  printOffsetX    Int     @default(0) // alignment nudge, hundredths of an inch
+  printOffsetY    Int     @default(0)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -677,6 +712,7 @@ model BankAccount {
   account         Account           @relation(fields: [accountId], references: [id])
   transactions    BankTransaction[]
   reconciliations Reconciliation[]
+  checks          Check[]
 
   @@index([companyId])
   @@map("bank_account")
