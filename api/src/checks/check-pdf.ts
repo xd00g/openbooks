@@ -219,8 +219,10 @@ export function buildAlignmentTestPdf(
     doc.fontSize(8).fillColor(GREEN);
     doc.text('CHECK REGION — top 3.5"', 50 + dx, CHECK_HEIGHT - 16 + dy);
 
-    // Alignment guide boxes derived from FIELD_POSITIONS. The y-values and
-    // heights are calibration-specific (guide presentation), not the draw coordinates.
+    // Alignment guide boxes derived from FIELD_POSITIONS. Each box's alignY is
+    // computed from the corresponding draw position (FIELD_POSITIONS.*.y) minus
+    // a calibration-specific offset. Heights are guide presentation only.
+    // If a field's draw position changes, its guide box follows automatically.
     interface AlignmentBox {
       label: string;
       x: number;
@@ -229,11 +231,11 @@ export function buildAlignmentTestPdf(
       height: number;
     }
     const alignmentBoxes: AlignmentBox[] = [
-      { label: 'date', x: FIELD_POSITIONS.date.x, alignY: 62, width: FIELD_POSITIONS.date.width, height: 20 },
-      { label: 'payee', x: FIELD_POSITIONS.payee.x, alignY: 106, width: FIELD_POSITIONS.payee.width, height: 20 },
-      { label: 'amount', x: FIELD_POSITIONS.amount.x, alignY: 106, width: FIELD_POSITIONS.amount.width, height: 20 },
-      { label: 'legal amount', x: FIELD_POSITIONS.legalAmount.x, alignY: 140, width: FIELD_POSITIONS.legalAmount.width, height: 20 },
-      { label: 'signature line', x: FIELD_POSITIONS.signature.x, alignY: 200, width: FIELD_POSITIONS.signature.width, height: 16 },
+      { label: 'date', x: FIELD_POSITIONS.date.x, alignY: FIELD_POSITIONS.date.y - 8, width: FIELD_POSITIONS.date.width, height: 20 },
+      { label: 'payee', x: FIELD_POSITIONS.payee.x, alignY: FIELD_POSITIONS.payee.y - 6, width: FIELD_POSITIONS.payee.width, height: 20 },
+      { label: 'amount', x: FIELD_POSITIONS.amount.x, alignY: FIELD_POSITIONS.amount.y - 6, width: FIELD_POSITIONS.amount.width, height: 20 },
+      { label: 'legal amount', x: FIELD_POSITIONS.legalAmount.x, alignY: FIELD_POSITIONS.legalAmount.y - 6, width: FIELD_POSITIONS.legalAmount.width, height: 20 },
+      { label: 'signature line', x: FIELD_POSITIONS.signature.x, alignY: FIELD_POSITIONS.signature.y - 12, width: FIELD_POSITIONS.signature.width, height: 16 },
     ];
     doc.lineWidth(0.5).strokeColor('#c0392b');
     for (const box of alignmentBoxes) {
