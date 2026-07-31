@@ -28,6 +28,7 @@ export class BankAccountsController {
   ) {}
 
   @Get()
+  @RequirePermissions('banking:manage')
   list(@Headers('x-company-id') cid: string) {
     return this.svc.list(company(cid));
   }
@@ -69,6 +70,7 @@ export class BankAccountsController {
   }
 
   @Get(':id/transactions')
+  @RequirePermissions('banking:manage')
   transactions(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,

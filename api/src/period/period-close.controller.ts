@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { PeriodCloseService } from './period-close.service';
+import { RequirePermissions } from '../auth/decorators';
 
 function requireCompany(companyId?: string): string {
   if (!companyId) throw new BadRequestException('Missing X-Company-Id header.');
@@ -20,6 +21,7 @@ export class PeriodCloseController {
   constructor(private readonly svc: PeriodCloseService) {}
 
   @Post()
+  @RequirePermissions('period:close')
   close(
     @Headers('x-company-id') companyId: string,
     @Body() body: { asOf: string },
@@ -29,6 +31,7 @@ export class PeriodCloseController {
   }
 
   @Post('reopen')
+  @RequirePermissions('period:close')
   reopen(
     @Headers('x-company-id') companyId: string,
     @Body() body: { closedThrough: string | null },

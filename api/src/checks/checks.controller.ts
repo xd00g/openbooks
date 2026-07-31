@@ -22,6 +22,7 @@ export class ChecksController {
   constructor(private readonly checks: ChecksService) {}
 
   @Get('queue')
+  @RequirePermissions('checks:manage')
   queue(
     @Headers('x-company-id') cid: string,
     @Query('bankAccountId') bankAccountId: string,
@@ -31,6 +32,7 @@ export class ChecksController {
   }
 
   @Get('history')
+  @RequirePermissions('checks:manage')
   history(
     @Headers('x-company-id') cid: string,
     @Query('bankAccountId') bankAccountId: string,
@@ -40,7 +42,7 @@ export class ChecksController {
   }
 
   @Post('print')
-  @RequirePermissions('banking:manage')
+  @RequirePermissions('checks:print')
   print(
     @Headers('x-company-id') cid: string,
     @Body() body: { bankAccountId: string; startNumber: number; checkIds: string[] },
@@ -55,7 +57,7 @@ export class ChecksController {
   }
 
   @Get('print/:batchId/pdf')
-  @RequirePermissions('banking:manage')
+  @RequirePermissions('checks:print')
   async batchPdf(
     @Headers('x-company-id') cid: string,
     @Param('batchId') batchId: string,
@@ -68,7 +70,7 @@ export class ChecksController {
   }
 
   @Post('print/:batchId/confirm')
-  @RequirePermissions('banking:manage')
+  @RequirePermissions('checks:print')
   confirm(
     @Headers('x-company-id') cid: string,
     @Param('batchId') batchId: string,
@@ -78,7 +80,7 @@ export class ChecksController {
   }
 
   @Post(':id/void')
-  @RequirePermissions('banking:manage')
+  @RequirePermissions('checks:void')
   void(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -89,7 +91,7 @@ export class ChecksController {
   }
 
   @Get('alignment-test')
-  @RequirePermissions('banking:manage')
+  @RequirePermissions('checks:manage')
   async alignment(
     @Headers('x-company-id') cid: string,
     @Query('bankAccountId') bankAccountId: string,
@@ -103,7 +105,7 @@ export class ChecksController {
   }
 
   @Post('offsets')
-  @RequirePermissions('banking:manage')
+  @RequirePermissions('checks:manage')
   offsets(
     @Headers('x-company-id') cid: string,
     @Body() body: { bankAccountId: string; printOffsetX: number; printOffsetY: number },

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { ReconciliationService } from './reconciliation.service';
+import { RequirePermissions } from '../auth/decorators';
 
 function requireCompany(companyId?: string): string {
   if (!companyId) throw new BadRequestException('Missing X-Company-Id header.');
@@ -23,6 +24,7 @@ export class ReconciliationController {
   constructor(private readonly svc: ReconciliationService) {}
 
   @Post()
+  @RequirePermissions('banking:reconcile')
   start(
     @Headers('x-company-id') companyId: string,
     @Body()
@@ -37,6 +39,7 @@ export class ReconciliationController {
   }
 
   @Get()
+  @RequirePermissions('banking:reconcile')
   list(
     @Headers('x-company-id') companyId: string,
     @Query('bankAccountId') bankAccountId?: string,
@@ -45,6 +48,7 @@ export class ReconciliationController {
   }
 
   @Get('suggestions')
+  @RequirePermissions('banking:reconcile')
   suggestions(
     @Headers('x-company-id') companyId: string,
     @Query('bankAccountId') bankAccountId: string,
@@ -58,6 +62,7 @@ export class ReconciliationController {
   }
 
   @Post(':id/cleared')
+  @RequirePermissions('banking:reconcile')
   setCleared(
     @Headers('x-company-id') companyId: string,
     @Param('id') reconciliationId: string,
@@ -72,6 +77,7 @@ export class ReconciliationController {
   }
 
   @Get(':id/summary')
+  @RequirePermissions('banking:reconcile')
   summary(
     @Headers('x-company-id') companyId: string,
     @Param('id') reconciliationId: string,
@@ -80,6 +86,7 @@ export class ReconciliationController {
   }
 
   @Post(':id/complete')
+  @RequirePermissions('banking:reconcile')
   complete(
     @Headers('x-company-id') companyId: string,
     @Param('id') reconciliationId: string,
@@ -88,6 +95,7 @@ export class ReconciliationController {
   }
 
   @Get(':id')
+  @RequirePermissions('banking:reconcile')
   get(
     @Headers('x-company-id') companyId: string,
     @Param('id') reconciliationId: string,
