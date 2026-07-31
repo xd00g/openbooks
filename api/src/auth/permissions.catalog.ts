@@ -58,6 +58,28 @@ export function isKnownPermission(key: string): boolean {
   return PERMISSION_KEYS.includes(key);
 }
 
+/** The distinct resource names (the part before the colon) across the catalog. */
+export const PERMISSION_RESOURCES: string[] = [
+  ...new Set(PERMISSION_KEYS.map((k) => k.split(':')[0])),
+];
+
+/** Is `resource` one that actually has grantable permissions in the catalog? */
+export function isKnownResource(resource: string): boolean {
+  return PERMISSION_RESOURCES.includes(resource);
+}
+
+/**
+ * Is `p` a permission a role is allowed to be granted? Accepts the '*'
+ * superuser wildcard, a resource wildcard (`"sales:*"`) whose resource is
+ * real, or an exact catalog key. Rejects everything else, including
+ * wildcards over resources that don't exist (e.g. `"invoice:*"`).
+ */
+export function isValidPermissionGrant(p: string): boolean {
+  if (p === '*') return true;
+  if (p.endsWith(':*')) return isKnownResource(p.slice(0, -2));
+  return isKnownPermission(p);
+}
+
 export interface SystemRoleDef {
   name: string;
   description: string;
