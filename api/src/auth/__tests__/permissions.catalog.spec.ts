@@ -51,9 +51,14 @@ function enforcedPermissions(): {
         permissions.add(s[1]);
       }
 
-      // Check for non-literal arguments: anything that isn't just quotes and whitespace
-      const withoutQuotes = argText.replace(/'[^']+'/g, '').replace(/"[^"]+"/g, '');
-      if (withoutQuotes.trim().length > 0) {
+      // Check for non-literal arguments: anything that isn't just quoted
+      // strings separated by commas/whitespace (multiple permissions, e.g.
+      // @RequirePermissions('a:manage', 'b:manage'), are legitimate).
+      const withoutQuotes = argText
+        .replace(/'[^']+'/g, '')
+        .replace(/"[^"]+"/g, '')
+        .replace(/[\s,]/g, '');
+      if (withoutQuotes.length > 0) {
         nonLiterals.push({ file, text: argText.trim() });
       }
     }
