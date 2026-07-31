@@ -65,6 +65,7 @@ export class ChecksService {
     return this.prisma.forCompany(companyId, async (tx) => {
       const checks = await tx.check.findMany({
         where: {
+          companyId,
           id: { in: input.checkIds },
           bankAccountId: input.bankAccountId,
           status: 'queued',
@@ -79,7 +80,7 @@ export class ChecksService {
 
       // Every number ever assigned on this account, voided included (spec 4.4).
       const spent = await tx.check.findMany({
-        where: { bankAccountId: input.bankAccountId, checkNumber: { not: null } },
+        where: { companyId, bankAccountId: input.bankAccountId, checkNumber: { not: null } },
         select: { checkNumber: true },
       });
 
@@ -131,7 +132,7 @@ export class ChecksService {
 
       const company = await tx.company.findFirst({ where: { id: companyId }, select: { legalName: true } });
       const bank = await tx.bankAccount.findFirst({
-        where: { id: checks[0].bankAccountId },
+        where: { id: checks[0].bankAccountId, companyId },
         select: { printOffsetX: true, printOffsetY: true },
       });
 
@@ -187,7 +188,7 @@ export class ChecksService {
   ) {
     return this.prisma.forCompany(companyId, async (tx) => {
       const checks = await tx.check.findMany({
-        where: { printBatchId },
+        where: { companyId, printBatchId },
         orderBy: { checkNumber: 'asc' },
       });
       if (checks.length === 0) throw new NotFoundException('Print batch not found.');
@@ -282,7 +283,7 @@ export class ChecksService {
     createdById?: string,
   ) {
     return this.prisma.forCompany(companyId, async (tx) => {
-      const check = await tx.check.findFirst({ where: { id: checkId } });
+      const check = await tx.check.findFirst({ where: { id: checkId, companyId } });
       if (!check) throw new NotFoundException('Check not found.');
 
       const kind: VoidKind = 'cancel';
@@ -296,7 +297,7 @@ export class ChecksService {
       }
 
       const payment = await tx.payment.findFirst({
-        where: { id: check.paymentId },
+        where: { id: check.paymentId, companyId },
         select: { id: true, journalEntryId: true },
       });
       if (!payment) throw new NotFoundException('Payment for this check not found.');
@@ -324,7 +325,7 @@ export class ChecksService {
       });
       for (const a of applications) {
         if (!a.billId) continue;
-        const bill = await tx.bill.findFirst({ where: { id: a.billId } });
+        const bill = await tx.bill.findFirst({ where: { id: a.billId, companyId } });
         if (!bill) continue;
         const newBalance = bill.balanceDue.add(a.amount);
         const newPaid = bill.amountPaid.sub(a.amount);
@@ -352,7 +353,7 @@ export class ChecksService {
   async alignmentPdf(companyId: string, bankAccountId: string): Promise<Buffer> {
     const bank = await this.prisma.forCompany(companyId, (tx) =>
       tx.bankAccount.findFirst({
-        where: { id: bankAccountId },
+        where: { id: bankAccountId, companyId },
         select: { printOffsetX: true, printOffsetY: true },
       }),
     );
