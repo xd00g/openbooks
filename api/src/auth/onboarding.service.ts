@@ -4,6 +4,7 @@ import { CoaSeederService } from '../accounts/coa-seeder.service';
 import { AuthService } from './auth.service';
 import { hashPassword } from './crypto/password';
 import { EncryptionService } from '../common/crypto/encryption.service';
+import { SYSTEM_ROLES } from './permissions.catalog';
 
 interface OnboardInput {
   organizationName: string;
@@ -39,14 +40,7 @@ export class OnboardingService {
         data: { name: input.organizationName },
       });
 
-      const ownerRole = await tx.role.create({
-        data: {
-          organizationId: org.id,
-          name: 'Owner',
-          isSystem: true,
-          permissions: ['*'],
-        },
-      });
+      const ownerRole = await this.ensureSystemRoles(tx, org.id);
 
       const owner = await tx.user.upsert({
         where: { email: input.owner.email },
@@ -145,19 +139,9 @@ export class OnboardingService {
         organizationId = org.id;
       }
 
-      // Reuse an Owner role in the org, or create one.
-      const ownerRole =
-        (await tx.role.findFirst({
-          where: { organizationId, name: 'Owner' },
-        })) ??
-        (await tx.role.create({
-          data: {
-            organizationId,
-            name: 'Owner',
-            isSystem: true,
-            permissions: ['*'],
-          },
-        }));
+      // Reuse an Owner role in the org, or create one (along with the other
+      // starter roles, if missing).
+      const ownerRole = await this.ensureSystemRoles(tx, organizationId);
 
       const company = await tx.company.create({
         data: {
@@ -201,5 +185,32 @@ export class OnboardingService {
       companyId: result.company.id,
       legalName: result.company.legalName,
     };
+  }
+
+  /**
+   * Ensure the four starter roles exist for an organization and return Owner.
+   * Idempotent: matched on (organizationId, name), which is already a unique
+   * constraint, so an operator who customised a role keeps their version.
+   */
+  private async ensureSystemRoles(tx: any, organizationId: string) {
+    let owner: any = null;
+    for (const def of SYSTEM_ROLES) {
+      const existing = await tx.role.findFirst({
+        where: { organizationId, name: def.name },
+      });
+      const row =
+        existing ??
+        (await tx.role.create({
+          data: {
+            organizationId,
+            name: def.name,
+            description: def.description,
+            permissions: def.permissions,
+            isSystem: true,
+          },
+        }));
+      if (def.name === 'Owner') owner = row;
+    }
+    return owner;
   }
 }

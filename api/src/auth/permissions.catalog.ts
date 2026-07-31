@@ -57,3 +57,48 @@ export const PERMISSION_KEYS: string[] = PERMISSION_CATALOG.map((p) => p.key);
 export function isKnownPermission(key: string): boolean {
   return PERMISSION_KEYS.includes(key);
 }
+
+export interface SystemRoleDef {
+  name: string;
+  description: string;
+  permissions: string[];
+}
+
+/**
+ * The starter roles seeded for every new organization. Owner must stay first —
+ * onboarding assigns it to the founding user.
+ */
+export const SYSTEM_ROLES: SystemRoleDef[] = [
+  {
+    name: 'Owner',
+    description: 'Full access to everything.',
+    permissions: ['*'],
+  },
+  {
+    name: 'Accountant',
+    description: 'Full books access, but cannot manage users or system settings.',
+    permissions: PERMISSION_KEYS.filter(
+      (k) => k !== 'user:manage' && k !== 'system:manage',
+    ),
+  },
+  {
+    name: 'Bookkeeper',
+    description:
+      'Day-to-day document entry and banking. Cannot close periods, print or void checks, or touch payroll.',
+    permissions: [
+      'sales:manage',
+      'expenses:manage',
+      'banking:manage',
+      'banking:reconcile',
+      'checks:manage',
+      'settings:manage',
+      'reports:view',
+      'attachments:view',
+    ],
+  },
+  {
+    name: 'Read-only',
+    description: 'Can view the books but change nothing.',
+    permissions: ['reports:view', 'payroll:view', 'attachments:view', 'audit:view'],
+  },
+];

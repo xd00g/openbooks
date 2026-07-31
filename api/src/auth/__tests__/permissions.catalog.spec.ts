@@ -4,6 +4,7 @@ import {
   PERMISSION_CATALOG,
   PERMISSION_KEYS,
   isKnownPermission,
+  SYSTEM_ROLES,
 } from '../permissions.catalog';
 
 const SRC = resolve(__dirname, '../..');
@@ -131,5 +132,44 @@ describe('catalog matches enforcement', () => {
     const { permissions: enforced } = enforcedPermissions();
     const unenforced = PERMISSION_KEYS.filter((k) => !enforced.has(k));
     expect(unenforced).toEqual([]);
+  });
+});
+
+describe('system roles', () => {
+  it('grants Owner full access', () => {
+    expect(SYSTEM_ROLES[0].name).toBe('Owner');
+    expect(SYSTEM_ROLES[0].permissions).toEqual(['*']);
+  });
+
+  it('references only real permissions (or the wildcard)', () => {
+    for (const role of SYSTEM_ROLES) {
+      for (const p of role.permissions) {
+        if (p === '*') continue;
+        expect(isKnownPermission(p)).toBe(true);
+      }
+    }
+  });
+
+  it('keeps Accountant out of user and system administration', () => {
+    const acct = SYSTEM_ROLES.find((r) => r.name === 'Accountant')!;
+    expect(acct.permissions).not.toContain('user:manage');
+    expect(acct.permissions).not.toContain('system:manage');
+  });
+
+  it('keeps Bookkeeper away from the irreversible actions', () => {
+    const bk = SYSTEM_ROLES.find((r) => r.name === 'Bookkeeper')!;
+    for (const denied of ['period:close', 'checks:print', 'checks:void', 'payroll:run', 'payroll:manage']) {
+      expect(bk.permissions).not.toContain(denied);
+    }
+  });
+
+  it('gives Read-only nothing but view permissions', () => {
+    const ro = SYSTEM_ROLES.find((r) => r.name === 'Read-only')!;
+    for (const p of ro.permissions) expect(p.endsWith(':view')).toBe(true);
+  });
+
+  it('uses unique role names', () => {
+    const names = SYSTEM_ROLES.map((r) => r.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 });
