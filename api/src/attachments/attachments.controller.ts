@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AttachmentsService } from './attachments.service';
+import { RequirePermissions } from '../auth/decorators';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -23,6 +24,7 @@ export class AttachmentsController {
   constructor(private readonly attachments: AttachmentsService) {}
 
   @Post('upload-url')
+  @RequirePermissions('expenses:manage')
   createUpload(
     @Headers('x-company-id') cid: string,
     @Body()
@@ -38,6 +40,7 @@ export class AttachmentsController {
   }
 
   @Post(':id/confirm')
+  @RequirePermissions('expenses:manage')
   confirm(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -47,6 +50,7 @@ export class AttachmentsController {
   }
 
   @Get()
+  @RequirePermissions('attachments:view')
   list(
     @Headers('x-company-id') cid: string,
     @Query('entityType') entityType: string,
@@ -56,6 +60,7 @@ export class AttachmentsController {
   }
 
   @Get(':id/download-url')
+  @RequirePermissions('attachments:view')
   download(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.attachments.downloadUrl(company(cid), id);
   }

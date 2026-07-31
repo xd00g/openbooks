@@ -44,6 +44,7 @@ export class PayrollController {
   }
 
   @Get('employees')
+  @RequirePermissions('payroll:view')
   listEmployees(@Headers('x-company-id') cid: string) {
     return this.payroll.listEmployees(company(cid));
   }
@@ -85,11 +86,13 @@ export class PayrollController {
   }
 
   @Get('runs')
+  @RequirePermissions('payroll:view')
   listRuns(@Headers('x-company-id') cid: string) {
     return this.payroll.listRuns(company(cid));
   }
 
   @Get('runs/:id')
+  @RequirePermissions('payroll:view')
   getRun(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.payroll.getRun(company(cid), id);
   }

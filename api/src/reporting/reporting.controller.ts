@@ -8,6 +8,7 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { ReportingService } from './reporting.service';
 import { AccountingMethod } from './reporting.types';
+import { RequirePermissions } from '../auth/decorators';
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -30,6 +31,7 @@ export class ReportingController {
   constructor(private readonly reporting: ReportingService) {}
 
   @Get('trial-balance')
+  @RequirePermissions('reports:view')
   trialBalance(
     @Headers('x-company-id') companyId: string,
     @Query('asOf') asOf?: string,
@@ -43,6 +45,7 @@ export class ReportingController {
   }
 
   @Get('income-statement')
+  @RequirePermissions('reports:view')
   incomeStatement(
     @Headers('x-company-id') companyId: string,
     @Query('from') from?: string,
@@ -60,6 +63,7 @@ export class ReportingController {
   }
 
   @Get('balance-sheet')
+  @RequirePermissions('reports:view')
   balanceSheet(
     @Headers('x-company-id') companyId: string,
     @Query('asOf') asOf?: string,
@@ -73,6 +77,7 @@ export class ReportingController {
   }
 
   @Get('ar-aging')
+  @RequirePermissions('reports:view')
   arAging(
     @Headers('x-company-id') companyId: string,
     @Query('asOf') asOf?: string,
@@ -84,6 +89,7 @@ export class ReportingController {
   }
 
   @Get('ap-aging')
+  @RequirePermissions('reports:view')
   apAging(
     @Headers('x-company-id') companyId: string,
     @Query('asOf') asOf?: string,
