@@ -28,6 +28,7 @@ import TaxRates from './pages/TaxRates';
 import PaymentTerms from './pages/PaymentTerms';
 import Registers from './pages/Registers';
 import Reconcile from './pages/Reconcile';
+import Checks from './pages/Checks';
 
 type NavLeaf = { to: string; label: string; icon?: ReactNode };
 type NavGroup = { label: string; icon: ReactNode; children: NavLeaf[] };
@@ -41,6 +42,7 @@ const NAV: NavItem[] = [
       { to: '/banking', label: 'Integrations & Import', icon: <Landmark size={15} /> },
       { to: '/registers', label: 'Accounts', icon: <Wallet size={15} /> },
       { to: '/reconcile', label: 'Reconcile', icon: <BookOpen size={15} /> },
+      { to: '/checks', label: 'Print Checks', icon: <ReceiptText size={15} /> },
     ],
   },
   {
@@ -227,6 +229,7 @@ export default function App() {
           <Route path="/banking" element={<Banking />} />
           <Route path="/registers" element={<Registers />} />
           <Route path="/reconcile" element={<Reconcile />} />
+          <Route path="/checks" element={<Checks />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/accounting" element={<Accounting />} />
