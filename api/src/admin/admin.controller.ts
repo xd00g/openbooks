@@ -13,6 +13,7 @@ import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminOrgService } from './admin-org.service';
 import { RequirePermissions } from '../auth/decorators';
+import { PERMISSION_CATALOG } from '../auth/permissions.catalog';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -125,8 +126,14 @@ export class AdminController {
   }
 
   @Get('audit')
-  @RequirePermissions('user:manage')
+  @RequirePermissions('audit:view')
   audit(@Headers('x-company-id') cid: string) {
     return this.svc.listAudit(company(cid));
+  }
+
+  @Get('permissions')
+  @RequirePermissions('user:manage')
+  permissions() {
+    return PERMISSION_CATALOG;
   }
 }

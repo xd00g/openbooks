@@ -110,13 +110,15 @@ describe('catalog matches enforcement', () => {
 
   it('detects non-literal @RequirePermissions arguments and fails', () => {
     const { nonLiterals } = enforcedPermissions();
-    const msg = nonLiterals
-      .map((nl) => `  ${nl.file}: @RequirePermissions(${nl.text})`)
-      .join('\n');
-    expect(nonLiterals).toEqual(
-      [],
-      `Found non-literal permission arguments that cannot be verified:\n${msg}\n\nUse string literals (single or double quoted) so the drift test can extract and verify them.`,
-    );
+    if (nonLiterals.length > 0) {
+      const msg = nonLiterals
+        .map((nl) => `  ${nl.file}: @RequirePermissions(${nl.text})`)
+        .join('\n');
+      throw new Error(
+        `Found non-literal permission arguments that cannot be verified:\n${msg}\n\nUse string literals (single or double quoted) so the drift test can extract and verify them.`,
+      );
+    }
+    expect(nonLiterals).toEqual([]);
   });
 
   it('has no phantom enforcement: every decorator permission is in the catalog', () => {

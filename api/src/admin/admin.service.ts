@@ -1,10 +1,18 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword } from '../auth/crypto/password';
+import { isKnownPermission } from '../auth/permissions.catalog';
+import {
+  wouldOrphanCompany,
+  grantsUserManage,
+  type MemberPermissionView,
+} from '../auth/authz';
 
 @Injectable()
 export class AdminService {
@@ -38,6 +46,15 @@ export class AdminService {
   }
 
   createRole(companyId: string, data: { name: string; description?: string; permissions: string[] }) {
+    const unknown = data.permissions.filter(
+      (p) => p !== '*' && !p.endsWith(':*') && !isKnownPermission(p),
+    );
+    if (unknown.length > 0) {
+      throw new BadRequestException(
+        `Unknown permission(s): ${unknown.join(', ')}`,
+      );
+    }
+
     return this.prisma.forCompany(companyId, async (tx) => {
       const company = await tx.company.findUnique({
         where: { id: companyId },
@@ -100,12 +117,41 @@ export class AdminService {
     });
   }
 
+  /** Load every member's effective permissions for lockout checks. */
+  private async memberPermissions(
+    tx: PrismaClient,
+    companyId: string,
+  ): Promise<MemberPermissionView[]> {
+    const rows = await tx.membership.findMany({
+      where: { companyId },
+      include: { role: { select: { permissions: true } } },
+    });
+    return rows.map((m: any) => ({
+      userId: m.userId,
+      permissions: m.role.permissions as string[],
+    }));
+  }
+
   updateMemberRole(companyId: string, userId: string, roleId: string) {
     return this.prisma.forCompany(companyId, async (tx) => {
       const m = await tx.membership.findUnique({
         where: { userId_companyId: { userId, companyId } },
       });
       if (!m) throw new NotFoundException('Membership not found.');
+
+      const target = await tx.role.findFirst({
+        where: { id: roleId },
+        select: { permissions: true },
+      });
+      if (!target) throw new NotFoundException('Role not found.');
+
+      const members = await this.memberPermissions(tx, companyId);
+      if (wouldOrphanCompany(members, { userId, newPermissions: target.permissions as string[] })) {
+        throw new ConflictException(
+          'This change would leave the company with no one who can manage users.',
+        );
+      }
+
       return tx.membership.update({
         where: { userId_companyId: { userId, companyId } },
         data: { roleId },
@@ -114,9 +160,16 @@ export class AdminService {
   }
 
   removeMember(companyId: string, userId: string) {
-    return this.prisma.forCompany(companyId, (tx) =>
-      tx.membership.delete({ where: { userId_companyId: { userId, companyId } } }),
-    );
+    return this.prisma.forCompany(companyId, async (tx) => {
+      const members = await this.memberPermissions(tx, companyId);
+      if (wouldOrphanCompany(members, { userId, newPermissions: null })) {
+        throw new ConflictException(
+          'This would remove the last member who can manage users.',
+        );
+      }
+
+      return tx.membership.delete({ where: { userId_companyId: { userId, companyId } } });
+    });
   }
 
   listAudit(companyId: string) {
