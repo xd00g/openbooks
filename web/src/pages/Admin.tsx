@@ -4,22 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { date } from '../lib/format';
 import { Page, Card, Table, Button, Empty, Modal, Banner } from '../components/ui';
-
-const PERMISSIONS = [
-  '*',
-  'company:manage',
-  'user:manage',
-  'system:manage',
-  'account:manage',
-  'invoice:create',
-  'bill:create',
-  'payment:create',
-  'banking:manage',
-  'banking:reconcile',
-  'payroll:manage',
-  'payroll:run',
-  'report:view',
-];
+import RoleMatrix from '../components/RoleMatrix';
 
 type Tab = 'members' | 'users' | 'companies' | 'roles' | 'audit' | 'system';
 
@@ -60,15 +45,6 @@ export default function Admin() {
   });
   const setRole = (userId: string, roleId: string) =>
     api.patch(`/admin/members/${userId}`, { roleId }).then(() => qc.invalidateQueries({ queryKey: key('members') })).catch((e) => setErr(e.message));
-
-  const [role, setRole2] = useState<{ name: string; permissions: string[] }>({ name: '', permissions: [] });
-  const togglePerm = (p: string) =>
-    setRole2((r) => ({ ...r, permissions: r.permissions.includes(p) ? r.permissions.filter((x) => x !== p) : [...r.permissions, p] }));
-  const createRole = useMutation({
-    mutationFn: () => api.post('/admin/roles', role),
-    onSuccess: () => { setRole2({ name: '', permissions: [] }); qc.invalidateQueries({ queryKey: key('roles') }); },
-    onError: (e: any) => setErr(e.message),
-  });
 
   // ---- Organization-wide (cross-company) management ----
   const orgUsers = useQuery({ queryKey: key('org-users'), enabled: !!companyId && can('user:manage') && (tab === 'users' || tab === 'companies'), queryFn: () => api.get('/admin/org/users') });
@@ -220,33 +196,7 @@ export default function Admin() {
         );
       })()}
 
-      {tab === 'roles' && (
-        <>
-          <Card title="Create role">
-            <input value={role.name} onChange={(e) => setRole2({ ...role, name: e.target.value })} placeholder="Role name" className="mb-3 w-full max-w-xs rounded-md border border-rule px-2 py-1 text-sm" />
-            <div className="grid grid-cols-2 gap-1 text-sm sm:grid-cols-3">
-              {PERMISSIONS.map((p) => (
-                <label key={p} className="flex items-center gap-2">
-                  <input type="checkbox" checked={role.permissions.includes(p)} onChange={() => togglePerm(p)} />
-                  <code className="text-xs">{p}</code>
-                </label>
-              ))}
-            </div>
-            <div className="mt-3"><Button onClick={() => createRole.mutate()} disabled={!role.name || role.permissions.length === 0}>Create role</Button></div>
-          </Card>
-          <div className="mt-4">
-            <Table head={['Role', 'Permissions', 'Scope']}>
-              {(roles.data ?? []).map((r: any) => (
-                <tr key={r.id}>
-                  <td className="px-4 py-2 font-medium">{r.name}</td>
-                  <td className="px-4 py-2 text-xs text-muted">{r.permissions.join(', ')}</td>
-                  <td className="px-4 py-2 text-muted">{r.organizationId ? 'Organization' : 'System template'}</td>
-                </tr>
-              ))}
-            </Table>
-          </div>
-        </>
-      )}
+      {tab === 'roles' && <RoleMatrix companyKey={key('roles')} />}
 
       {tab === 'audit' && (
         <Table head={['When', 'Actor', 'Action', 'Table', 'Record']}>
