@@ -73,6 +73,7 @@ function wholeToWords(digits: string): string {
  * Accepts the 2- or 4-decimal strings Prisma returns for Decimal(19,4).
  * Rejects negatives (a negative check is not a thing) and fractional cents
  * (unprintable — a check is a whole number of cents).
+ * Rejects zero-value amounts (a check for $0.00 is not a negotiable instrument).
  */
 export function amountToWords(amount: string): string {
   const match = /^(\d+)(?:\.(\d{1,4}))?$/.exec(amount.trim());
@@ -85,7 +86,12 @@ export function amountToWords(amount: string): string {
       `Amount ${amount} has fractional cents; a check must be a whole number of cents.`,
     );
   }
-  const words = `${wholeToWords(match[1])} and ${frac.slice(0, 2)}/100`;
+  const centsStr = frac.slice(0, 2);
+  const wholeTrimmed = match[1].replace(/^0+/, '');
+  if (wholeTrimmed === '' && centsStr === '00') {
+    throw new CheckError('Amount cannot be zero: a check must have a non-zero value.');
+  }
+  const words = `${wholeToWords(match[1])} and ${centsStr}/100`;
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 

@@ -287,7 +287,7 @@ export class ExpensesService {
       const [bills, payments] = await Promise.all([
         tx.bill.findMany({ where: { vendorId, status: { not: 'draft' } }, orderBy: { issueDate: 'asc' } }),
         tx.payment.findMany({
-          where: { vendorId, direction: 'paid' },
+          where: { vendorId, direction: 'paid', voidedAt: null },
           include: { applications: { select: { billId: true, amount: true } } },
           orderBy: { paymentDate: 'asc' },
         }),

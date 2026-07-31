@@ -531,6 +531,7 @@ model Payment {
   reference      String?
   depositAccountId String?        @db.Uuid // bank or undeposited funds
   journalEntryId String?          @db.Uuid @unique
+  voidedAt       DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 

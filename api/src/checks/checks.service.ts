@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import {
@@ -98,15 +99,28 @@ export class ChecksService {
       const printBatchId = randomUUID();
       const printedAt = new Date();
       for (let i = 0; i < checks.length; i++) {
-        await tx.check.update({
-          where: { id: checks[i].id },
-          data: {
-            checkNumber: numbers[i],
-            status: 'printed',
-            printBatchId,
-            printedAt,
-          },
-        });
+        try {
+          await tx.check.update({
+            where: { id: checks[i].id },
+            data: {
+              checkNumber: numbers[i],
+              status: 'printed',
+              printBatchId,
+              printedAt,
+            },
+          });
+        } catch (e) {
+          if (
+            e instanceof Prisma.PrismaClientKnownRequestError &&
+            e.code === 'P2002'
+          ) {
+            throw new ConflictException(
+              `Check number ${numbers[i]} was just taken by another print batch ` +
+                `on this bank account (check_number_unique_per_account). Reload the queue and retry.`,
+            );
+          }
+          throw e;
+        }
       }
 
       await tx.bankAccount.update({
@@ -254,18 +268,31 @@ export class ChecksService {
         });
         // A fresh queued row for the same payment, so it prints again with a
         // new number. The voided row stays as the audit trail.
-        await tx.check.create({
-          data: {
-            companyId,
-            bankAccountId: c.bankAccountId,
-            paymentId: c.paymentId,
-            status: 'queued',
-            payeeName: c.payeeName,
-            amount: c.amount,
-            checkDate: c.checkDate,
-            memo: c.memo,
-          },
-        });
+        try {
+          await tx.check.create({
+            data: {
+              companyId,
+              bankAccountId: c.bankAccountId,
+              paymentId: c.paymentId,
+              status: 'queued',
+              payeeName: c.payeeName,
+              amount: c.amount,
+              checkDate: c.checkDate,
+              memo: c.memo,
+            },
+          });
+        } catch (e) {
+          if (
+            e instanceof Prisma.PrismaClientKnownRequestError &&
+            e.code === 'P2002'
+          ) {
+            throw new ConflictException(
+              `Check ${c.checkNumber} for this payment already has another active ` +
+                `check row (check_one_active_per_payment). Reload the batch and retry.`,
+            );
+          }
+          throw e;
+        }
         requeued++;
       }
       return { committed: pending.length - requeued, requeued, alreadyHandled: false };
@@ -339,7 +366,7 @@ export class ChecksService {
         });
       }
 
-      return tx.check.update({
+      const voidedCheck = await tx.check.update({
         where: { id: checkId },
         data: {
           status: 'voided',
@@ -347,6 +374,16 @@ export class ChecksService {
           voidedAt: new Date(),
         },
       });
+
+      // The payment no longer settles anything — mark it dead so downstream
+      // reads (vendor statements, aging) stop counting it. The
+      // PaymentApplication rows survive untouched as the historical record.
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { voidedAt: new Date() },
+      });
+
+      return voidedCheck;
     });
   }
 

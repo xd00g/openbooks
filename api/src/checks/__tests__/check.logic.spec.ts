@@ -63,6 +63,22 @@ describe('amountToWords', () => {
   it('rejects non-numeric input', () => {
     expect(() => amountToWords('abc')).toThrow(CheckError);
   });
+
+  it('rejects a zero-value amount (0.00)', () => {
+    expect(() => amountToWords('0.00')).toThrow(CheckError);
+  });
+
+  it('rejects a zero-value amount (0)', () => {
+    expect(() => amountToWords('0')).toThrow(CheckError);
+  });
+
+  it('rejects a zero-value amount from Prisma (0.0000)', () => {
+    expect(() => amountToWords('0.0000')).toThrow(CheckError);
+  });
+
+  it('accepts the smallest valid amount (0.01)', () => {
+    expect(amountToWords('0.01')).toBe('Zero and 01/100');
+  });
 });
 
 describe('allocateCheckNumbers', () => {

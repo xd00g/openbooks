@@ -12,6 +12,7 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { ExpensesService, VendorInput } from './expenses.service';
 import { DocLineInput } from '../documents/document.logic';
+import { RequirePermissions } from '../auth/decorators';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -117,6 +118,7 @@ export class ExpensesController {
   }
 
   @Post('payments')
+  @RequirePermissions('banking:manage')
   payBills(
     @Headers('x-company-id') cid: string,
     @Body()
