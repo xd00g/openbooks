@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { PaymentTermsService, PaymentTermInput } from './payment-terms.service';
+import { RequirePermissions } from '../auth/decorators';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -28,11 +29,13 @@ export class PaymentTermsController {
   }
 
   @Post()
+  @RequirePermissions('settings:manage')
   create(@Headers('x-company-id') cid: string, @Body() body: PaymentTermInput) {
     return this.svc.create(company(cid), body);
   }
 
   @Patch(':id')
+  @RequirePermissions('settings:manage')
   update(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,

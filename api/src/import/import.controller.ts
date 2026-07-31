@@ -22,7 +22,7 @@ export class ImportController {
 
   /** Parse an uploaded IIF and return what WOULD be imported (no writes). */
   @Post('preview')
-  @RequirePermissions('account:manage')
+  @RequirePermissions('banking:manage')
   preview(@Body() body: { content: string }) {
     if (!body?.content?.trim()) throw new BadRequestException('content is required.');
     return this.svc.previewIif(body.content);
@@ -30,7 +30,7 @@ export class ImportController {
 
   /** Commit the selected entity types from the IIF into the active company. */
   @Post('commit')
-  @RequirePermissions('account:manage')
+  @RequirePermissions('banking:manage')
   commit(
     @Headers('x-company-id') cid: string,
     @Body()

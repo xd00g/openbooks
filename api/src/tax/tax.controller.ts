@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { TaxService, TaxRateInput } from './tax.service';
+import { RequirePermissions } from '../auth/decorators';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -33,11 +34,13 @@ export class TaxController {
   }
 
   @Post('rates')
+  @RequirePermissions('settings:manage')
   createRate(@Headers('x-company-id') cid: string, @Body() body: TaxRateInput) {
     return this.svc.createRate(company(cid), body);
   }
 
   @Patch('rates/:id')
+  @RequirePermissions('settings:manage')
   updateRate(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,

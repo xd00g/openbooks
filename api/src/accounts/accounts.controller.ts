@@ -35,6 +35,7 @@ export class AccountsController {
   }
 
   @Post(':id/transactions')
+  @RequirePermissions('account:manage')
   addTransaction(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -44,6 +45,7 @@ export class AccountsController {
   }
 
   @Post(':id/import')
+  @RequirePermissions('account:manage')
   importTransactions(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
