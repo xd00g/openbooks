@@ -12,7 +12,7 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminOrgService } from './admin-org.service';
-import { RequirePermissions } from '../auth/decorators';
+import { CurrentUser, RequirePermissions } from '../auth/decorators';
 import { PERMISSION_CATALOG } from '../auth/permissions.catalog';
 
 function company(id?: string): string {
@@ -45,8 +45,13 @@ export class AdminController {
 
   @Patch('org/users/:id')
   @RequirePermissions('user:manage')
-  updateUser(@Headers('x-company-id') cid: string, @Param('id') id: string, @Body() body: { fullName?: string; isActive?: boolean }) {
-    return this.org.updateUser(company(cid), id, body);
+  updateUser(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: { fullName?: string; isActive?: boolean },
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.org.updateUser(company(cid), id, body, user?.id);
   }
 
   @Post('org/users/:id/reset-password')

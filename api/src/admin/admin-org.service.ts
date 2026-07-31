@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AdminPrismaService } from '../auth/admin-prisma.service';
 import { hashPassword } from '../auth/crypto/password';
+import { assertWouldNotOrphanCompany } from './admin.service';
+import { grantsUserManage } from '../auth/authz';
 
 /**
  * Cross-company (organization-level) administration: manage all users and all
@@ -83,7 +85,35 @@ export class AdminOrgService {
     });
   }
 
-  async updateUser(_currentCompanyId: string, userId: string, data: { fullName?: string; isActive?: boolean }) {
+  async updateUser(
+    _currentCompanyId: string,
+    userId: string,
+    data: { fullName?: string; isActive?: boolean },
+    actingUserId?: string,
+  ) {
+    if (data.isActive === false) {
+      if (actingUserId && actingUserId === userId) {
+        throw new ConflictException('You cannot deactivate your own account.');
+      }
+
+      // Deactivation is indistinguishable from removal once
+      // PermissionsGuard rejects every request from an inactive user — so it
+      // must pass the same lockout check as removing a membership, for every
+      // company this user belongs to.
+      const memberships = await this.admin.membership.findMany({
+        where: { userId },
+        select: { companyId: true },
+      });
+      for (const { companyId } of memberships) {
+        await assertWouldNotOrphanCompany(
+          this.admin,
+          companyId,
+          { userId, newPermissions: null },
+          'This would deactivate the last member who can manage users for one of this user\'s companies.',
+        );
+      }
+    }
+
     const patch: Record<string, unknown> = {};
     if (data.fullName !== undefined) patch.fullName = data.fullName;
     if (data.isActive !== undefined) patch.isActive = data.isActive;
@@ -106,6 +136,23 @@ export class AdminOrgService {
     if (!target) throw new BadRequestException('That company is not in this organization.');
     const role = await this.admin.role.findFirst({ where: { id: roleId } });
     if (!role) throw new BadRequestException('Role not found.');
+
+    // Only an update to an *existing* membership can orphan the company — a
+    // brand-new membership only ever adds someone. Only check when the new
+    // role would drop user:manage; a promotion can never orphan.
+    const existing = await this.admin.membership.findUnique({
+      where: { userId_companyId: { userId, companyId: targetCompanyId } },
+      select: { id: true },
+    });
+    if (existing && !grantsUserManage(role.permissions as string[])) {
+      await assertWouldNotOrphanCompany(
+        this.admin,
+        targetCompanyId,
+        { userId, newPermissions: role.permissions as string[] },
+        'This change would leave the company with no one who can manage users.',
+      );
+    }
+
     return this.admin.membership.upsert({
       where: { userId_companyId: { userId, companyId: targetCompanyId } },
       update: { roleId },
@@ -115,6 +162,13 @@ export class AdminOrgService {
   }
 
   async removeMembership(_currentCompanyId: string, userId: string, targetCompanyId: string) {
+    await assertWouldNotOrphanCompany(
+      this.admin,
+      targetCompanyId,
+      { userId, newPermissions: null },
+      'This would remove the last member who can manage users.',
+    );
+
     await this.admin.membership
       .delete({ where: { userId_companyId: { userId, companyId: targetCompanyId } } })
       .catch(() => undefined);

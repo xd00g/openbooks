@@ -7,12 +7,56 @@ import {
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword } from '../auth/crypto/password';
-import { isKnownPermission } from '../auth/permissions.catalog';
+import { isValidPermissionGrant } from '../auth/permissions.catalog';
 import {
   wouldOrphanCompany,
-  grantsUserManage,
   type MemberPermissionView,
 } from '../auth/authz';
+
+/**
+ * Load every member's effective permissions for lockout checks, explicitly
+ * scoped to `companyId`.
+ *
+ * Takes any Prisma client with a `membership` delegate — an RLS-scoped
+ * transaction client (see `PrismaService.forCompany`, used by `AdminService`)
+ * or the RLS-bypassing `AdminPrismaService` (used by `AdminOrgService`). The
+ * explicit `companyId` filter matters most for the latter: that client has no
+ * RLS to scope the query for you, so omitting the filter would silently pull
+ * every company's members and make the lockout guard useless.
+ */
+export async function loadMemberPermissions(
+  client: Pick<PrismaClient, 'membership'>,
+  companyId: string,
+): Promise<MemberPermissionView[]> {
+  const rows = await client.membership.findMany({
+    where: { companyId },
+    include: { role: { select: { permissions: true } } },
+  });
+  return rows.map((m: any) => ({
+    userId: m.userId,
+    permissions: m.role.permissions as string[],
+  }));
+}
+
+/**
+ * Load `companyId`'s members and throw `ConflictException` with `message` if
+ * `change` would leave nobody there able to manage users. Shared by
+ * `AdminService` (role edit / member removal) and `AdminOrgService`
+ * (cross-company membership assignment / removal) so both lockout guards run
+ * the identical predicate (`wouldOrphanCompany` in `auth/authz.ts`) against
+ * identically-scoped data.
+ */
+export async function assertWouldNotOrphanCompany(
+  client: Pick<PrismaClient, 'membership'>,
+  companyId: string,
+  change: { userId: string; newPermissions: string[] | null },
+  message: string,
+): Promise<void> {
+  const members = await loadMemberPermissions(client, companyId);
+  if (wouldOrphanCompany(members, change)) {
+    throw new ConflictException(message);
+  }
+}
 
 @Injectable()
 export class AdminService {
@@ -46,9 +90,7 @@ export class AdminService {
   }
 
   createRole(companyId: string, data: { name: string; description?: string; permissions: string[] }) {
-    const unknown = data.permissions.filter(
-      (p) => p !== '*' && !p.endsWith(':*') && !isKnownPermission(p),
-    );
+    const unknown = data.permissions.filter((p) => !isValidPermissionGrant(p));
     if (unknown.length > 0) {
       throw new BadRequestException(
         `Unknown permission(s): ${unknown.join(', ')}`,
@@ -117,21 +159,6 @@ export class AdminService {
     });
   }
 
-  /** Load every member's effective permissions for lockout checks. */
-  private async memberPermissions(
-    tx: PrismaClient,
-    companyId: string,
-  ): Promise<MemberPermissionView[]> {
-    const rows = await tx.membership.findMany({
-      where: { companyId },
-      include: { role: { select: { permissions: true } } },
-    });
-    return rows.map((m: any) => ({
-      userId: m.userId,
-      permissions: m.role.permissions as string[],
-    }));
-  }
-
   updateMemberRole(companyId: string, userId: string, roleId: string) {
     return this.prisma.forCompany(companyId, async (tx) => {
       const m = await tx.membership.findUnique({
@@ -145,12 +172,12 @@ export class AdminService {
       });
       if (!target) throw new NotFoundException('Role not found.');
 
-      const members = await this.memberPermissions(tx, companyId);
-      if (wouldOrphanCompany(members, { userId, newPermissions: target.permissions as string[] })) {
-        throw new ConflictException(
-          'This change would leave the company with no one who can manage users.',
-        );
-      }
+      await assertWouldNotOrphanCompany(
+        tx,
+        companyId,
+        { userId, newPermissions: target.permissions as string[] },
+        'This change would leave the company with no one who can manage users.',
+      );
 
       return tx.membership.update({
         where: { userId_companyId: { userId, companyId } },
@@ -161,12 +188,12 @@ export class AdminService {
 
   removeMember(companyId: string, userId: string) {
     return this.prisma.forCompany(companyId, async (tx) => {
-      const members = await this.memberPermissions(tx, companyId);
-      if (wouldOrphanCompany(members, { userId, newPermissions: null })) {
-        throw new ConflictException(
-          'This would remove the last member who can manage users.',
-        );
-      }
+      await assertWouldNotOrphanCompany(
+        tx,
+        companyId,
+        { userId, newPermissions: null },
+        'This would remove the last member who can manage users.',
+      );
 
       return tx.membership.delete({ where: { userId_companyId: { userId, companyId } } });
     });
