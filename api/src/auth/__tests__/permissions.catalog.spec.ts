@@ -22,16 +22,43 @@ function controllerFiles(dir: string): string[] {
   return out;
 }
 
-/** Every string passed to @RequirePermissions(...) across all controllers. */
-function enforcedPermissions(): Set<string> {
-  const found = new Set<string>();
+/**
+ * Every string passed to @RequirePermissions(...) across all controllers.
+ * Returns both the extracted permissions and any non-literal arguments.
+ * Non-literals (constants, expressions) cannot be statically verified, so we
+ * collect them and fail with a clear message if any are found.
+ */
+function enforcedPermissions(): {
+  permissions: Set<string>;
+  nonLiterals: Array<{ file: string; text: string }>;
+} {
+  const permissions = new Set<string>();
+  const nonLiterals: Array<{ file: string; text: string }> = [];
+
   for (const file of controllerFiles(SRC)) {
     const src = readFileSync(file, 'utf8');
     for (const m of src.matchAll(/@RequirePermissions\(([^)]*)\)/g)) {
-      for (const s of m[1].matchAll(/'([^']+)'/g)) found.add(s[1]);
+      const argText = m[1];
+
+      // Extract single-quoted strings
+      for (const s of argText.matchAll(/'([^']+)'/g)) {
+        permissions.add(s[1]);
+      }
+
+      // Extract double-quoted strings
+      for (const s of argText.matchAll(/"([^"]+)"/g)) {
+        permissions.add(s[1]);
+      }
+
+      // Check for non-literal arguments: anything that isn't just quotes and whitespace
+      const withoutQuotes = argText.replace(/'[^']+'/g, '').replace(/"[^"]+"/g, '');
+      if (withoutQuotes.trim().length > 0) {
+        nonLiterals.push({ file, text: argText.trim() });
+      }
     }
   }
-  return found;
+
+  return { permissions, nonLiterals };
 }
 
 describe('permission catalog integrity', () => {
@@ -76,8 +103,25 @@ describe('permission catalog integrity', () => {
 });
 
 describe('catalog matches enforcement', () => {
+  it('discovers a non-zero set of controllers', () => {
+    const controllers = controllerFiles(SRC);
+    expect(controllers.length).toBeGreaterThan(0);
+  });
+
+  it('detects non-literal @RequirePermissions arguments and fails', () => {
+    const { nonLiterals } = enforcedPermissions();
+    const msg = nonLiterals
+      .map((nl) => `  ${nl.file}: @RequirePermissions(${nl.text})`)
+      .join('\n');
+    expect(nonLiterals).toEqual(
+      [],
+      `Found non-literal permission arguments that cannot be verified:\n${msg}\n\nUse string literals (single or double quoted) so the drift test can extract and verify them.`,
+    );
+  });
+
   it('has no phantom enforcement: every decorator permission is in the catalog', () => {
-    const unknown = [...enforcedPermissions()].filter((p) => !isKnownPermission(p));
+    const { permissions } = enforcedPermissions();
+    const unknown = [...permissions].filter((p) => !isKnownPermission(p));
     expect(unknown).toEqual([]);
   });
 
