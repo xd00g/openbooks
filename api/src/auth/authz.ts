@@ -50,3 +50,33 @@ export function resolveCompanyAccess(
     permissions: m.permissions,
   };
 }
+
+/** One member's effective permissions, for lockout checks. */
+export interface MemberPermissionView {
+  userId: string;
+  permissions: string[];
+}
+
+/** Does this permission set allow managing users? Honours wildcards. */
+export function grantsUserManage(permissions: string[]): boolean {
+  return hasPermission(permissions, 'user:manage');
+}
+
+/**
+ * Would applying `change` leave the company with nobody who can manage users?
+ *
+ * `newPermissions: null` means the member is being removed. A userId not
+ * present in `members` is treated as an addition, which can never orphan.
+ */
+export function wouldOrphanCompany(
+  members: MemberPermissionView[],
+  change: { userId: string; newPermissions: string[] | null },
+): boolean {
+  const after = members
+    .filter((m) => m.userId !== change.userId)
+    .map((m) => m.permissions);
+
+  if (change.newPermissions !== null) after.push(change.newPermissions);
+
+  return !after.some((perms) => grantsUserManage(perms));
+}
