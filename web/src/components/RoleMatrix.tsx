@@ -59,14 +59,26 @@ export default function RoleMatrix({ companyKey }: { companyKey: unknown[] }) {
     role.permissions.includes(key) ||
     role.permissions.includes(`${key.split(':')[0]}:*`);
 
-  if (defs.length === 0) return <Empty>Loading permissions…</Empty>;
+  const catalogErr = catalog.isError
+    ? `Could not load the permission catalog: ${(catalog.error as Error).message}`
+    : '';
+  const rolesErr = roles.isError
+    ? `Could not load roles: ${(roles.error as Error).message}`
+    : '';
+  const bannerText = err || catalogErr || rolesErr;
 
   return (
     <div className="space-y-6">
-      <Banner text={err} />
+      <Banner text={bannerText} />
 
       <Card title="Permission matrix">
-        <div className="overflow-x-auto">
+        {catalog.isLoading ? (
+          <Empty>Loading permissions…</Empty>
+        ) : catalog.isError ? (
+          <Empty>The permission catalog failed to load.</Empty>
+        ) : defs.length === 0 ? (
+          <Empty>No permissions defined.</Empty>
+        ) : (
           <Table head={['Permission', ...roleList.map((r) => r.name), 'New role']}>
             {groups.map((g) => (
               <Fragment key={g}>
@@ -86,18 +98,25 @@ export default function RoleMatrix({ companyKey }: { companyKey: unknown[] }) {
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs">{d.key}</span>
                           {d.risk === 'high' && (
-                            <span className="text-[10px] uppercase tracking-wide text-owed">
+                            <span className="text-eyebrow uppercase text-owed">
                               high risk
                             </span>
                           )}
                         </div>
                         <div className="text-xs text-muted">{d.description}</div>
                       </td>
-                      {roleList.map((r) => (
-                        <td key={r.id} className="px-4 py-2 text-center">
-                          {held(r, d.key) ? '●' : '·'}
-                        </td>
-                      ))}
+                      {roleList.map((r) => {
+                        const grants = held(r, d.key);
+                        return (
+                          <td
+                            key={r.id}
+                            className="px-4 py-2 text-center"
+                            aria-label={`${r.name} ${grants ? 'has' : 'does not have'} ${d.key}`}
+                          >
+                            {grants ? '●' : '·'}
+                          </td>
+                        );
+                      })}
                       <td className="px-4 py-2 text-center">
                         <input
                           type="checkbox"
@@ -111,7 +130,7 @@ export default function RoleMatrix({ companyKey }: { companyKey: unknown[] }) {
               </Fragment>
             ))}
           </Table>
-        </div>
+        )}
 
         <div className="mt-4 flex items-end gap-3">
           <label className="text-xs uppercase tracking-wide text-muted">
