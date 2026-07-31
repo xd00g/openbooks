@@ -26,6 +26,7 @@ export class ExpensesController {
   constructor(private readonly expenses: ExpensesService) {}
 
   @Post('vendors')
+  @RequirePermissions('expenses:manage')
   createVendor(
     @Headers('x-company-id') cid: string,
     @Body() body: VendorInput,
@@ -34,6 +35,7 @@ export class ExpensesController {
   }
 
   @Patch('vendors/:id')
+  @RequirePermissions('expenses:manage')
   updateVendor(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -53,6 +55,7 @@ export class ExpensesController {
   }
 
   @Post('bills')
+  @RequirePermissions('expenses:manage')
   createBill(
     @Headers('x-company-id') cid: string,
     @Body()
@@ -70,6 +73,7 @@ export class ExpensesController {
   }
 
   @Patch('bills/:id')
+  @RequirePermissions('expenses:manage')
   updateBill(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -88,21 +92,25 @@ export class ExpensesController {
   }
 
   @Post('bills/:id/revert')
+  @RequirePermissions('expenses:manage')
   revertBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.expenses.revertBill(company(cid), id);
   }
 
   @Post('bills/:id/finalize')
+  @RequirePermissions('expenses:manage')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.expenses.finalizeBill(company(cid), id);
   }
 
   @Post('bills/:id/void')
+  @RequirePermissions('expenses:manage')
   voidBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.expenses.voidBill(company(cid), id);
   }
 
   @Delete('bills/:id')
+  @RequirePermissions('expenses:manage')
   deleteBill(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.expenses.deleteBill(company(cid), id);
   }

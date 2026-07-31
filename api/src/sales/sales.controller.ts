@@ -13,6 +13,7 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { SalesService, CustomerInput } from './sales.service';
 import { DocLineInput } from '../documents/document.logic';
+import { RequirePermissions } from '../auth/decorators';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -26,6 +27,7 @@ export class SalesController {
   constructor(private readonly sales: SalesService) {}
 
   @Post('customers')
+  @RequirePermissions('sales:manage')
   createCustomer(
     @Headers('x-company-id') cid: string,
     @Body() body: CustomerInput,
@@ -34,6 +36,7 @@ export class SalesController {
   }
 
   @Patch('customers/:id')
+  @RequirePermissions('sales:manage')
   updateCustomer(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -48,6 +51,7 @@ export class SalesController {
   }
 
   @Post('invoices')
+  @RequirePermissions('sales:manage')
   createInvoice(
     @Headers('x-company-id') cid: string,
     @Body()
@@ -65,6 +69,7 @@ export class SalesController {
   }
 
   @Patch('invoices/:id')
+  @RequirePermissions('sales:manage')
   updateInvoice(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -83,16 +88,19 @@ export class SalesController {
   }
 
   @Post('invoices/:id/revert')
+  @RequirePermissions('sales:manage')
   revertInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.revertInvoice(company(cid), id);
   }
 
   @Post('invoices/:id/finalize')
+  @RequirePermissions('sales:manage')
   finalize(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.finalizeInvoice(company(cid), id);
   }
 
   @Post('invoices/:id/void')
+  @RequirePermissions('sales:manage')
   voidInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.voidInvoice(company(cid), id);
   }
@@ -107,6 +115,7 @@ export class SalesController {
   }
 
   @Post('invoices/:id/send')
+  @RequirePermissions('sales:manage')
   send(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -116,6 +125,7 @@ export class SalesController {
   }
 
   @Delete('invoices/:id')
+  @RequirePermissions('sales:manage')
   deleteInvoice(@Headers('x-company-id') cid: string, @Param('id') id: string) {
     return this.sales.deleteInvoice(company(cid), id);
   }
@@ -131,6 +141,7 @@ export class SalesController {
   }
 
   @Post('payments')
+  @RequirePermissions('sales:manage')
   recordPayment(
     @Headers('x-company-id') cid: string,
     @Body()
