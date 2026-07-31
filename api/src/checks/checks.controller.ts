@@ -10,7 +10,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { ChecksService } from './checks.service';
-import { CurrentUser } from '../auth/decorators';
+import { CurrentUser, RequirePermissions } from '../auth/decorators';
 
 function company(cid: string): string {
   if (!cid) throw new BadRequestException('Missing X-Company-Id header.');
@@ -40,6 +40,7 @@ export class ChecksController {
   }
 
   @Post('print')
+  @RequirePermissions('banking:manage')
   print(
     @Headers('x-company-id') cid: string,
     @Body() body: { bankAccountId: string; startNumber: number; checkIds: string[] },
@@ -60,6 +61,7 @@ export class ChecksController {
   }
 
   @Post('print/:batchId/confirm')
+  @RequirePermissions('banking:manage')
   confirm(
     @Headers('x-company-id') cid: string,
     @Param('batchId') batchId: string,
@@ -69,6 +71,7 @@ export class ChecksController {
   }
 
   @Post(':id/void')
+  @RequirePermissions('banking:manage')
   void(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
@@ -92,6 +95,7 @@ export class ChecksController {
   }
 
   @Post('offsets')
+  @RequirePermissions('banking:manage')
   offsets(
     @Headers('x-company-id') cid: string,
     @Body() body: { bankAccountId: string; printOffsetX: number; printOffsetY: number },
