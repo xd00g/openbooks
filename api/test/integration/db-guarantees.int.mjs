@@ -202,19 +202,14 @@ async function main() {
 
   // 7. RLS: company B cannot see company A's checks.
   //
-  // NOTE: as of this writing this assertion FAILS against the real
-  // accounting_core_constraints.sql. The RLS enablement loop in that file
-  // (~line 193) enrolls tables from a hardcoded `tenant_tables` array, and
-  // "check" was never added to it when Task 3 added the check table/indexes.
-  // Confirmed directly: `SELECT relrowsecurity FROM pg_class WHERE relname =
-  // 'check'` returns false after applying the constraints file to a fresh DB.
-  // This is a genuine, previously-undetected gap in production code: check
-  // rows are NOT tenant-isolated at the database level. Fixing it requires
-  // adding 'check' to the tenant_tables array in accounting_core_constraints.sql,
-  // which this task explicitly forbids modifying. The assertion is left as
-  // written (expressing the guarantee that SHOULD hold) rather than weakened
-  // to match current behavior, so it continues to fail loudly until that
-  // one-line fix lands. See task-8-report.md for details.
+  // This assertion originally caught a genuine gap: the RLS enablement loop
+  // in accounting_core_constraints.sql (~line 193) enrolls tables from a
+  // hardcoded `tenant_tables` array, and "check" had never been added to it
+  // when Task 3 added the check table/indexes, so check rows were not
+  // tenant-isolated at the database level. Fixed by adding 'check' to that
+  // array (follow-up to Task 8) plus explicit companyId filters in
+  // ChecksService as defense in depth. See task-8-report.md / the Task 8
+  // fix-report addendum for details.
   await c.query(
     `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,1,'printed')`,
     [B, bankAcctB, paymentB],

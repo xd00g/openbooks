@@ -36,7 +36,7 @@ export class ChecksService {
   listQueue(companyId: string, bankAccountId: string) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.check.findMany({
-        where: { bankAccountId, status: 'queued' },
+        where: { companyId, bankAccountId, status: 'queued' },
         orderBy: { checkDate: 'asc' },
       }),
     );
@@ -45,7 +45,7 @@ export class ChecksService {
   listHistory(companyId: string, bankAccountId: string) {
     return this.prisma.forCompany(companyId, (tx) =>
       tx.check.findMany({
-        where: { bankAccountId, status: { in: ['printed', 'voided'] } },
+        where: { companyId, bankAccountId, status: { in: ['printed', 'voided'] } },
         orderBy: { checkNumber: 'desc' },
         take: 200,
       }),
@@ -124,7 +124,7 @@ export class ChecksService {
   async batchPdf(companyId: string, printBatchId: string): Promise<Buffer> {
     const data = await this.prisma.forCompany(companyId, async (tx) => {
       const checks = await tx.check.findMany({
-        where: { printBatchId, status: { not: 'voided' } },
+        where: { companyId, printBatchId, status: { not: 'voided' } },
         orderBy: { checkNumber: 'asc' },
       });
       if (checks.length === 0) throw new NotFoundException('Print batch not found.');

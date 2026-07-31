@@ -205,6 +205,7 @@ DECLARE
     'bill_line',
     'payment',
     'payment_application',
+    'check',
     'item',
     'tax_agency',
     'tax_rate',
