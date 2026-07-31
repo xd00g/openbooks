@@ -127,7 +127,9 @@ describe('catalog matches enforcement', () => {
     expect(unknown).toEqual([]);
   });
 
-  // Activated in Task 8, once the enforcement sweep is complete. Until then
-  // most catalog entries legitimately have no decorator yet.
-  it.todo('has no phantom offers: every catalog permission is enforced somewhere');
+  it('has no phantom offers: every catalog permission is enforced somewhere', () => {
+    const { permissions: enforced } = enforcedPermissions();
+    const unenforced = PERMISSION_KEYS.filter((k) => !enforced.has(k));
+    expect(unenforced).toEqual([]);
+  });
 });
