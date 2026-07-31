@@ -9,6 +9,7 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { BankFeedService } from './bankfeed.service';
 import { CsvMapping } from './bankfeed.logic';
+import { RequirePermissions } from '../../auth/decorators';
 
 function company(id?: string): string {
   if (!id) throw new BadRequestException('Missing X-Company-Id header.');
@@ -22,6 +23,7 @@ export class BankFeedController {
   constructor(private readonly feed: BankFeedService) {}
 
   @Post('import')
+  @RequirePermissions('banking:manage')
   import(
     @Headers('x-company-id') cid: string,
     @Param('bankAccountId') bankAccountId: string,
@@ -36,6 +38,7 @@ export class BankFeedController {
   }
 
   @Post('sync')
+  @RequirePermissions('banking:manage')
   sync(
     @Headers('x-company-id') cid: string,
     @Param('bankAccountId') bankAccountId: string,
