@@ -64,3 +64,16 @@ CREATE TABLE payroll_run         (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 CREATE TABLE payroll_line        (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), "companyId" uuid NOT NULL);
 CREATE TABLE attachment          (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), "companyId" uuid NOT NULL);
 CREATE TABLE audit_log           (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), "companyId" uuid NOT NULL);
+
+-- "check" stub: only the columns referenced by the two partial unique indexes
+-- in accounting_core_constraints.sql (check_number_unique_per_account,
+-- check_one_active_per_payment). "check" is a SQL reserved word and must stay
+-- quoted, same as in the constraints file.
+CREATE TABLE "check" (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "companyId" uuid NOT NULL,
+  "bankAccountId" uuid NOT NULL,
+  "paymentId" uuid NOT NULL,
+  "checkNumber" integer,
+  status text NOT NULL DEFAULT 'queued'
+);

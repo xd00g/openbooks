@@ -130,6 +130,103 @@ async function main() {
     await expectErr(cli, `INSERT INTO account("companyId",code,name,type,subtype) VALUES($1,'9','x','asset','bank')`, [B], /row-level security|policy/i));
   await cli.end();
 
+  // ==========================================================================
+  // CHECK NUMBERING GUARANTEES (Task 8)
+  // Exercises the two partial unique indexes added to
+  // accounting_core_constraints.sql: check_number_unique_per_account (absolute,
+  // ignores voided) and check_one_active_per_payment (excludes voided).
+  // ==========================================================================
+  const bankAcctA = (await c.query(`INSERT INTO bank_account("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  const bankAcctA2 = (await c.query(`INSERT INTO bank_account("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  const bankAcctB = (await c.query(`INSERT INTO bank_account("companyId") VALUES($1) RETURNING id`, [B])).rows[0].id;
+
+  const payment1 = (await c.query(`INSERT INTO payment("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  const payment2 = (await c.query(`INSERT INTO payment("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  const paymentB = (await c.query(`INSERT INTO payment("companyId") VALUES($1) RETURNING id`, [B])).rows[0].id;
+
+  // 1. A second live check with the same (companyId, bankAccountId, checkNumber) is rejected.
+  const check1 = (await c.query(
+    `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,1001,'printed') RETURNING id`,
+    [A, bankAcctA, payment1],
+  )).rows[0].id;
+  ok('check_number_unique_per_account rejects a second live check with the same number/account',
+    await expectErr(c,
+      `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,1001,'printed')`,
+      [A, bankAcctA, payment2]));
+
+  // 2. After voiding the first, reusing that number is STILL rejected — a printed
+  // number is spent forever, regardless of what happened to the paper.
+  await c.query(`UPDATE "check" SET status='voided' WHERE id=$1`, [check1]);
+  ok('check_number_unique_per_account still rejects reuse of a voided check\'s number',
+    await expectErr(c,
+      `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,1001,'printed')`,
+      [A, bankAcctA, payment2]));
+
+  // 3. The same number on a DIFFERENT bankAccountId is allowed.
+  ok('check_number_unique_per_account allows the same number on a different bank account',
+    (await c.query(
+      `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,1001,'printed') RETURNING id`,
+      [A, bankAcctA2, payment2],
+    )).rows.length === 1);
+
+  // 4. A NULL checkNumber does not collide — two queued checks with no number coexist.
+  // Use fresh payments so this doesn't trip check_one_active_per_payment, which
+  // is a separate invariant under test elsewhere.
+  const paymentNull1 = (await c.query(`INSERT INTO payment("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  const paymentNull2 = (await c.query(`INSERT INTO payment("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  ok('check_number_unique_per_account does not apply to NULL checkNumbers',
+    (await c.query(
+      `INSERT INTO "check"("companyId","bankAccountId","paymentId",status) VALUES($1,$2,$3,'queued'), ($1,$2,$4,'queued') RETURNING id`,
+      [A, bankAcctA, paymentNull1, paymentNull2],
+    )).rows.length === 2);
+
+  // 5. Two non-voided checks for the same paymentId are rejected.
+  const paymentActive = (await c.query(`INSERT INTO payment("companyId") VALUES($1) RETURNING id`, [A])).rows[0].id;
+  const checkActive1 = (await c.query(
+    `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,2001,'printed') RETURNING id`,
+    [A, bankAcctA, paymentActive],
+  )).rows[0].id;
+  ok('check_one_active_per_payment rejects a second non-voided check for the same payment',
+    await expectErr(c,
+      `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,2002,'printed')`,
+      [A, bankAcctA, paymentActive]));
+
+  // 6. After voiding the first, a new active check for that payment is allowed
+  // (the misprint-reprint path).
+  await c.query(`UPDATE "check" SET status='voided' WHERE id=$1`, [checkActive1]);
+  ok('check_one_active_per_payment allows a reprint after the prior check is voided',
+    (await c.query(
+      `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,2002,'printed') RETURNING id`,
+      [A, bankAcctA, paymentActive],
+    )).rows.length === 1);
+
+  // 7. RLS: company B cannot see company A's checks.
+  //
+  // NOTE: as of this writing this assertion FAILS against the real
+  // accounting_core_constraints.sql. The RLS enablement loop in that file
+  // (~line 193) enrolls tables from a hardcoded `tenant_tables` array, and
+  // "check" was never added to it when Task 3 added the check table/indexes.
+  // Confirmed directly: `SELECT relrowsecurity FROM pg_class WHERE relname =
+  // 'check'` returns false after applying the constraints file to a fresh DB.
+  // This is a genuine, previously-undetected gap in production code: check
+  // rows are NOT tenant-isolated at the database level. Fixing it requires
+  // adding 'check' to the tenant_tables array in accounting_core_constraints.sql,
+  // which this task explicitly forbids modifying. The assertion is left as
+  // written (expressing the guarantee that SHOULD hold) rather than weakened
+  // to match current behavior, so it continues to fail loudly until that
+  // one-line fix lands. See task-8-report.md for details.
+  await c.query(
+    `INSERT INTO "check"("companyId","bankAccountId","paymentId","checkNumber",status) VALUES($1,$2,$3,1,'printed')`,
+    [B, bankAcctB, paymentB],
+  );
+  const checksAsB = await conn(port, 'openbooks');
+  await checksAsB.connect();
+  await checksAsB.query('SET ROLE openbooks_app');
+  await checksAsB.query("SELECT set_config('app.current_company', $1, false)", [B]);
+  const bChecksOfA = (await checksAsB.query(`SELECT count(*)::int AS n FROM "check" WHERE "companyId" = $1`, [A])).rows[0].n;
+  await checksAsB.end();
+  ok('RLS: company B cannot see company A\'s checks', bChecksOfA === 0);
+
   await c.end();
   await epg.stop();
   console.log(`\n${pass} passed, ${fail} failed`);
