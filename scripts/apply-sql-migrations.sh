@@ -15,4 +15,6 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/accounting_core_constraints
 # Idempotent follow-up migrations (safe to re-run).
 echo "Applying 0002_system_settings_and_theme.sql ..."
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/0002_system_settings_and_theme.sql"
+echo "Applying 0003_check_printing.sql ..."
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_DIR/0003_check_printing.sql"
 echo "Done."

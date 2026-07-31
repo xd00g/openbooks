@@ -45,10 +45,17 @@ export class ChecksController {
     @Headers('x-company-id') cid: string,
     @Body() body: { bankAccountId: string; startNumber: number; checkIds: string[] },
   ) {
+    if (!Array.isArray(body?.checkIds) || body.checkIds.length === 0) {
+      throw new BadRequestException('checkIds must be a non-empty array.');
+    }
+    if (!Number.isInteger(body?.startNumber) || body.startNumber <= 0) {
+      throw new BadRequestException('startNumber must be a positive integer.');
+    }
     return this.checks.startPrintBatch(company(cid), body);
   }
 
   @Get('print/:batchId/pdf')
+  @RequirePermissions('banking:manage')
   async batchPdf(
     @Headers('x-company-id') cid: string,
     @Param('batchId') batchId: string,
@@ -82,6 +89,7 @@ export class ChecksController {
   }
 
   @Get('alignment-test')
+  @RequirePermissions('banking:manage')
   async alignment(
     @Headers('x-company-id') cid: string,
     @Query('bankAccountId') bankAccountId: string,

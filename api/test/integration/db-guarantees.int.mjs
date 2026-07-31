@@ -24,6 +24,10 @@ const constraintsSql = readFileSync(
   resolve(here, '../../prisma/sql/accounting_core_constraints.sql'),
   'utf8',
 );
+const checkPrintingSql = readFileSync(
+  resolve(here, '../../prisma/sql/0003_check_printing.sql'),
+  'utf8',
+);
 
 let pass = 0, fail = 0;
 const ok = (n, c) => { console.log(`${c ? 'PASS' : 'FAIL'}  ${n}`); c ? pass++ : fail++; };
@@ -221,6 +225,19 @@ async function main() {
   const bChecksOfA = (await checksAsB.query(`SELECT count(*)::int AS n FROM "check" WHERE "companyId" = $1`, [A])).rows[0].n;
   await checksAsB.end();
   ok('RLS: company B cannot see company A\'s checks', bChecksOfA === 0);
+
+  // 8. Fix 1 regression guard: 0003_check_printing.sql (the re-runnable
+  // extract of the check-printing DDL, used because
+  // accounting_core_constraints.sql itself is NOT safe to re-run on a live
+  // database) must apply cleanly, and applying it AGAIN must also succeed —
+  // that's the actual idempotency guarantee this file exists to provide.
+  let firstApplyOk = true;
+  try { await c.query(checkPrintingSql); } catch (e) { firstApplyOk = false; console.error(e); }
+  ok('0003_check_printing.sql applies to real Postgres', firstApplyOk);
+
+  let secondApplyOk = true;
+  try { await c.query(checkPrintingSql); } catch (e) { secondApplyOk = false; console.error(e); }
+  ok('0003_check_printing.sql is idempotent (re-running it does not error)', secondApplyOk);
 
   await c.end();
   await epg.stop();

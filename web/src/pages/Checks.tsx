@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -21,11 +21,39 @@ export default function Checks() {
   const [voidReason, setVoidReason] = useState('');
   const [misprintOpen, setMisprintOpen] = useState(false);
   const [misprintNumber, setMisprintNumber] = useState('');
+  const [offsetX, setOffsetX] = useState('0');
+  const [offsetY, setOffsetY] = useState('0');
 
   const banks = useQuery({
     queryKey: ['bank-accounts', companyId],
     enabled: !!companyId,
     queryFn: () => api.get('/banking/accounts'),
+  });
+
+  const selectedBank = (banks.data ?? []).find((b: any) => b.id === bankAccountId);
+  useEffect(() => {
+    setOffsetX(String(selectedBank?.printOffsetX ?? 0));
+    setOffsetY(String(selectedBank?.printOffsetY ?? 0));
+  }, [selectedBank?.id]);
+
+  const clampOffset = (v: string) => {
+    const n = Number(v.replace(/[^-\d]/g, ''));
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(-200, Math.min(200, Math.trunc(n)));
+  };
+
+  const saveOffsets = useMutation({
+    mutationFn: () =>
+      api.post('/checks/offsets', {
+        bankAccountId,
+        printOffsetX: clampOffset(offsetX),
+        printOffsetY: clampOffset(offsetY),
+      }),
+    onSuccess: () => {
+      setErr('✓ Alignment offsets saved.');
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+    },
+    onError: (e: any) => setErr(e.message),
   });
 
   const queue = useQuery({
@@ -141,6 +169,31 @@ export default function Checks() {
         >
           Alignment test page
         </Button>
+        <label className="text-xs text-muted">Offset X (hundredths of an inch)
+          <input
+            value={offsetX}
+            onChange={(e) => setOffsetX(e.target.value.replace(/[^-\d]/g, ''))}
+            inputMode="numeric"
+            className="mt-1 block w-24 rounded-md border border-rule px-2 py-1 font-mono"
+            disabled={!bankAccountId}
+          />
+        </label>
+        <label className="text-xs text-muted">Offset Y (hundredths of an inch)
+          <input
+            value={offsetY}
+            onChange={(e) => setOffsetY(e.target.value.replace(/[^-\d]/g, ''))}
+            inputMode="numeric"
+            className="mt-1 block w-24 rounded-md border border-rule px-2 py-1 font-mono"
+            disabled={!bankAccountId}
+          />
+        </label>
+        <Button
+          variant="ghost"
+          onClick={() => saveOffsets.mutate()}
+          disabled={!bankAccountId || saveOffsets.isPending}
+        >
+          Save alignment
+        </Button>
       </div>
 
       {batchId && (
@@ -151,8 +204,14 @@ export default function Checks() {
             with new numbers.
           </p>
           <div className="flex gap-2">
-            <Button onClick={() => confirm.mutate({ ok: true })}>Yes, they printed</Button>
-            <Button variant="ghost" onClick={() => { setMisprintNumber(''); setMisprintOpen(true); }}>
+            <Button onClick={() => confirm.mutate({ ok: true })} disabled={confirm.isPending}>
+              Yes, they printed
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => { setMisprintNumber(''); setMisprintOpen(true); }}
+              disabled={confirm.isPending}
+            >
               Report a misprint
             </Button>
           </div>
@@ -237,7 +296,7 @@ export default function Checks() {
                 setMisprintOpen(false);
                 confirm.mutate({ ok: false, reprintFromNumber: Number(misprintNumber) });
               }}
-              disabled={!misprintNumber}
+              disabled={!misprintNumber || confirm.isPending}
             >
               Report misprint
             </Button>
@@ -266,7 +325,7 @@ export default function Checks() {
                 setVoidFor(null);
                 if (id && reason) voidCheck.mutate({ id, reason });
               }}
-              disabled={!voidReason.trim()}
+              disabled={!voidReason.trim() || voidCheck.isPending}
             >
               Void check
             </Button>

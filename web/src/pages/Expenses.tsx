@@ -15,6 +15,7 @@ export default function Expenses() {
   const [filesFor, setFilesFor] = useState<string | null>(null);
   const [billQ, setBillQ] = useState('');
   const [billSort, setBillSort] = useState<SortState | null>(null);
+  const [printLater, setPrintLater] = useState<Record<string, boolean>>({});
 
   const vendors = useQuery({ queryKey: key('vendors'), enabled: !!companyId, queryFn: () => api.get('/expenses/vendors') });
   const bills = useQuery({ queryKey: key('bills'), enabled: !!companyId, queryFn: () => api.get('/expenses/bills') });
@@ -79,6 +80,7 @@ export default function Expenses() {
     wrap(api.post('/expenses/payments', {
       vendorId: b.vendorId, paymentDate: today(), bankAccountId: bankAccounts[0].id,
       allocations: [{ billId: b.id, amount: String(b.balanceDue) }],
+      printLater: !!printLater[b.id],
     }));
   };
 
@@ -226,7 +228,17 @@ export default function Expenses() {
                     </>
                   )}
                   {(b.status === 'open' || b.status === 'partially_paid') && Number(b.balanceDue) > 0 && (
-                    <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
+                    <>
+                      <label className="inline-flex items-center gap-1 text-xs text-muted">
+                        <input
+                          type="checkbox"
+                          checked={!!printLater[b.id]}
+                          onChange={(e) => setPrintLater((m) => ({ ...m, [b.id]: e.target.checked }))}
+                        />
+                        Print check later
+                      </label>
+                      <Button variant="ghost" onClick={() => pay(b)}>Pay</Button>
+                    </>
                   )}
                 </span>
               </td>
