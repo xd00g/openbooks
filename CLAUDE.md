@@ -42,6 +42,19 @@ QuickBooks Online alternative). Multi-company, Dockerized, API-first.
   lines to an already-posted entry).
 - Reporting/period/reconciliation read the ledger via raw SQL (camelCase-quoted).
 - Audit: a global interceptor records mutating requests to `audit_log`.
+- Check printing (`api/src/checks/`): vendor checks on **pre-printed voucher
+  stock** — the app draws only variable data, never MICR. Numbers are per bank
+  account and unique **absolutely**: voided numbers are never reissued, because
+  once a number is on paper it is spent. "Void" means two different things —
+  a *misprint* burns the number only (no ledger impact), a *cancel* posts a
+  reversing entry and reopens the bills. `Check.confirmedAt` is the terminal
+  marker that makes a committed check immune to a later misprint report; without
+  it, a repeated confirm would void live checks. A payment may have many checks
+  but only one active (`check_one_active_per_payment`) — that is what lets a
+  misprint be reprinted while the voided row survives as the audit trail.
+  Payroll checks are NOT supported: a compliant paystub must itemize deductions
+  (California Labor Code §226 among others) and `PayrollLine.employeeTaxes` is
+  still a single lump Decimal.
 - Onboarding creates org+company+owner on the admin (RLS-bypass) connection,
   then seeds the chart of accounts on the normal path.
 
@@ -50,6 +63,25 @@ QuickBooks Online alternative). Multi-company, Dockerized, API-first.
 - `cd api && npm test` — pure-logic unit suite (no DB).
 - `npm run test:int` — real-Postgres integration test (boots its own Postgres via
   embedded-postgres) proving triggers + RLS. `npm run typecheck`.
+  **On a bare host `npm run test:int` fails with `libpq.so.5: cannot open shared
+  object file`.** `embedded-postgres` ships its own libs but without soname
+  symlinks. Create them once, then pass the path explicitly (the env var does not
+  survive `npm run`):
+  ```sh
+  cd api/node_modules/@embedded-postgres/linux-x64/native/lib
+  for f in *.so.*; do ln -sf "$f" "$(echo "$f" | sed -E 's/\.so\.([0-9]+)\..*/.so.\1/')"; done
+  cd /home/tcc-azure/openbooks/api
+  LD_LIBRARY_PATH="$PWD/node_modules/@embedded-postgres/linux-x64/native/lib" \
+    node test/integration/db-guarantees.int.mjs
+  ```
+  These symlinks live in `node_modules` and do **not** survive `npm install`.
+- **Adding a tenant table? Two steps, or you ship a data leak.** Declaring
+  `companyId` in `schema.prisma` is not enough — RLS is applied by a loop over a
+  **hardcoded** `tenant_tables` array in `prisma/sql/accounting_core_constraints.sql`.
+  A table missing from that array gets no policy and no isolation. The `check`
+  table shipped this way and only the integration test caught it. Also add the
+  table's stub to `test/db-guarantees.harness.sql`, or the constraints file fails
+  to apply and the whole integration suite dies.
 - CI (`.github/workflows/ci.yml`): api-tests, api-integration, api-typecheck,
   web-build. Web build is `vite build`; type errors surface in typecheck.
 
