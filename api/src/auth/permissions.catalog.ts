@@ -33,10 +33,17 @@ export const PERMISSION_CATALOG: PermissionDef[] = [
 
   // --- Documents ------------------------------------------------------
   { key: 'sales:manage', group: 'Documents', label: 'Sales and invoices', description: 'Customers, invoices and received payments.', risk: 'normal' },
-  { key: 'expenses:manage', group: 'Documents', label: 'Bills and vendors', description: 'Vendors, bills and attachments on bills.', risk: 'normal' },
+  { key: 'expenses:manage', group: 'Documents', label: 'Bills and vendors', description: 'Vendors and bills.', risk: 'normal' },
   { key: 'banking:manage', group: 'Documents', label: 'Banking', description: 'Bank accounts, feeds and transaction import.', risk: 'normal' },
   { key: 'banking:reconcile', group: 'Documents', label: 'Reconciliation', description: 'Run and complete bank reconciliations.', risk: 'normal' },
   { key: 'checks:manage', group: 'Documents', label: 'Check queue', description: 'View the check queue, history and alignment offsets.', risk: 'normal' },
+  // Attachments are entity-agnostic (bills, invoices, company branding, ...),
+  // so uploading is its own permission rather than being scoped to whichever
+  // resource the attachment happens to point at. The tradeoff: a role that
+  // needs to attach files must be granted this alongside whatever else it
+  // holds — there is no per-entity "can attach to bills" vs "can attach to
+  // invoices" distinction.
+  { key: 'attachments:manage', group: 'Documents', label: 'Upload attachments', description: 'Upload and confirm file attachments for any entity type (bills, invoices, company branding, etc).', risk: 'normal' },
 
   // --- Sensitive reads ------------------------------------------------
   { key: 'reports:view', group: 'Sensitive reads', label: 'Financial reports', description: 'Trial balance, income statement, balance sheet, agings.', risk: 'normal' },
@@ -116,6 +123,7 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
       'settings:manage',
       'reports:view',
       'attachments:view',
+      'attachments:manage',
     ],
   },
   {

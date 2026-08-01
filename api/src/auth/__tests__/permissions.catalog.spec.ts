@@ -173,6 +173,13 @@ describe('system roles', () => {
     for (const p of ro.permissions) expect(p.endsWith(':view')).toBe(true);
   });
 
+  it('grants Bookkeeper attachments:manage but keeps Read-only off it', () => {
+    const bk = SYSTEM_ROLES.find((r) => r.name === 'Bookkeeper')!;
+    expect(bk.permissions).toContain('attachments:manage');
+    const ro = SYSTEM_ROLES.find((r) => r.name === 'Read-only')!;
+    expect(ro.permissions).not.toContain('attachments:manage');
+  });
+
   it('uses unique role names', () => {
     const names = SYSTEM_ROLES.map((r) => r.name);
     expect(new Set(names).size).toBe(names.length);

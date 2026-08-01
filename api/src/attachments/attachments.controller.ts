@@ -24,7 +24,7 @@ export class AttachmentsController {
   constructor(private readonly attachments: AttachmentsService) {}
 
   @Post('upload-url')
-  @RequirePermissions('expenses:manage')
+  @RequirePermissions('attachments:manage')
   createUpload(
     @Headers('x-company-id') cid: string,
     @Body()
@@ -40,7 +40,7 @@ export class AttachmentsController {
   }
 
   @Post(':id/confirm')
-  @RequirePermissions('expenses:manage')
+  @RequirePermissions('attachments:manage')
   confirm(
     @Headers('x-company-id') cid: string,
     @Param('id') id: string,
