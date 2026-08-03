@@ -3,7 +3,7 @@
 # over its own encrypted outbound connection, so Caddy serves plain HTTP here
 # and just does path routing. cloudflared's public-hostname service should point
 # at http://caddy:80.
-http://books.doogster.com {
+http://books.nebulys.net, http://books.doogster.com {
 	# API under /api/* — preserve the /api prefix (the API's global route prefix),
 	# so use `handle` (not `handle_path`, which would strip it).
 	handle /api/* {

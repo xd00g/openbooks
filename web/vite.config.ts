@@ -14,11 +14,12 @@ export default defineConfig({
     },
   },
   // Production static server (`npm run preview`). It sits behind Caddy, which
-  // forwards the original Host (books.doogster.com); Vite blocks unknown hosts
-  // by default (DNS-rebinding protection), so allow the deployment host.
+  // forwards the original Host; Vite blocks unknown hosts by default
+  // (DNS-rebinding protection), so every hostname the tunnel serves must be
+  // listed here or the browser gets a blank 403 from Vite rather than the app.
   preview: {
     host: true,
     port: 5173,
-    allowedHosts: ['books.doogster.com'],
+    allowedHosts: ['books.nebulys.net', 'books.doogster.com'],
   },
 });

@@ -121,7 +121,13 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      VITE_API_URL: ${APP_URL:-http://localhost}/api
+      # Deliberately relative. Caddy serves the API and the web app on the SAME
+      # origin (/api/* -> api:3000, everything else -> web:5173), so a relative
+      # base makes the built bundle work on EVERY hostname the tunnel serves.
+      # Baking an absolute origin here (the old ${APP_URL}/api) meant the app
+      # loaded at one hostname would call the API at another, cross-origin.
+      # Override VITE_API_URL only if the API is genuinely on a different host.
+      VITE_API_URL: ${VITE_API_URL:-/api}
     ports:
       - "${WEB_PORT:-5173}:5173"
 
@@ -141,8 +147,13 @@ services:
 
   # Cloudflare Tunnel — outbound-only ingress (the VM has no inbound public IP).
   # Create a tunnel in the Cloudflare Zero Trust dashboard, set the public
-  # hostname books.doogster.com -> service http://caddy:80, and put the tunnel
+  # hostname books.nebulys.net -> service http://caddy:80, and put the tunnel
   # token in .env as TUNNEL_TOKEN. Started with the `tunnel` profile.
+  # A second public hostname books-f.nebulys.net -> http://minio:9000 serves
+  # attachments; it must match S3_PUBLIC_ENDPOINT so presigned URLs resolve.
+  # NOTE: this tunnel is token-managed, so hostname->service routing lives in
+  # the Cloudflare dashboard, NOT in this repo. Changing a hostname here alone
+  # does nothing until the tunnel's public hostname is updated there too.
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
