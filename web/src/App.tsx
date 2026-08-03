@@ -1,7 +1,7 @@
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Landmark, ReceiptText, CreditCard, BookOpen,
-  Users, BarChart3, Building2, ShieldCheck, ChevronDown, ChevronRight, LogOut, Plus, Package, Percent, CalendarClock, Wallet,
+  Users, BarChart3, Building2, ShieldCheck, ChevronDown, ChevronRight, LogOut, Plus, Package, Percent, CalendarClock, Wallet, Settings,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -35,36 +35,62 @@ type NavGroup = { label: string; icon: ReactNode; children: NavLeaf[] };
 type NavItem = NavLeaf | NavGroup;
 const isGroup = (i: NavItem): i is NavGroup => 'children' in i;
 
+/**
+ * Ordered by money flow, then by frequency of use — NOT alphabetically.
+ *
+ * Money in (Sales) -> money out (Expenses) -> reconcile it (Banking) ->
+ * pay people (Payroll) -> read the results (Reports) -> the things you
+ * configure once (Settings, Company, Admin). That mirrors the order of an
+ * income statement and the order a bookkeeper actually works in, so the
+ * sidebar reads as a workflow rather than a lookup table. Alphabetising
+ * would separate steps that belong together — Bills from Vendors, Invoices
+ * from Customers — and would rank set-once configuration alongside daily work.
+ *
+ * Within each group, the most-used item comes first: you create a vendor once
+ * and then enter bills against it for years, so Bills outranks Vendors.
+ *
+ * Chart of Accounts, Sales Tax and Payment Terms live under Settings on
+ * purpose. They used to sit in a nine-item "Accounting" group beside daily
+ * transaction entry, which is what made that group hard to scan.
+ */
 const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   {
-    label: 'Banking', icon: <Landmark size={18} />, children: [
-      { to: '/banking', label: 'Integrations & Import', icon: <Landmark size={15} /> },
-      { to: '/registers', label: 'Accounts', icon: <Wallet size={15} /> },
-      { to: '/reconcile', label: 'Reconcile', icon: <BookOpen size={15} /> },
-      { to: '/checks', label: 'Print Checks', icon: <ReceiptText size={15} /> },
+    label: 'Sales', icon: <ReceiptText size={18} />, children: [
+      { to: '/sales', label: 'Invoices', icon: <ReceiptText size={15} /> },
+      { to: '/customers', label: 'Customers', icon: <Users size={15} /> },
+      { to: '/items', label: 'Products & Services', icon: <Package size={15} /> },
     ],
   },
   {
-    label: 'Accounting', icon: <BookOpen size={18} />, children: [
-      { to: '/accounting', label: 'Chart of Accounts', icon: <BookOpen size={15} /> },
-      { to: '/sales', label: 'Sales & Invoices', icon: <ReceiptText size={15} /> },
+    label: 'Expenses', icon: <CreditCard size={18} />, children: [
       { to: '/expenses', label: 'Bills', icon: <CreditCard size={15} /> },
-      { to: '/customers', label: 'Customers', icon: <Users size={15} /> },
       { to: '/vendors', label: 'Vendors', icon: <Building2 size={15} /> },
       { to: '/vendor-statements', label: 'Vendor Statements', icon: <ReceiptText size={15} /> },
-      { to: '/items', label: 'Products & Services', icon: <Package size={15} /> },
+      { to: '/checks', label: 'Print Checks', icon: <Wallet size={15} /> },
+    ],
+  },
+  {
+    label: 'Banking', icon: <Landmark size={18} />, children: [
+      { to: '/registers', label: 'Accounts', icon: <Wallet size={15} /> },
+      { to: '/reconcile', label: 'Reconcile', icon: <BookOpen size={15} /> },
+      { to: '/banking', label: 'Integrations & Import', icon: <Landmark size={15} /> },
+    ],
+  },
+  {
+    label: 'Payroll', icon: <Users size={18} />, children: [
+      { to: '/payroll', label: 'Payroll Runs', icon: <CalendarClock size={15} /> },
+      { to: '/employees', label: 'Employees', icon: <Users size={15} /> },
+    ],
+  },
+  { to: '/reports', label: 'Reports', icon: <BarChart3 size={18} /> },
+  {
+    label: 'Settings', icon: <Settings size={18} />, children: [
+      { to: '/accounting', label: 'Chart of Accounts', icon: <BookOpen size={15} /> },
       { to: '/tax', label: 'Sales Tax', icon: <Percent size={15} /> },
       { to: '/payment-terms', label: 'Payment Terms', icon: <CalendarClock size={15} /> },
     ],
   },
-  {
-    label: 'Employees & Payroll', icon: <Users size={18} />, children: [
-      { to: '/payroll', label: 'Payroll' },
-      { to: '/employees', label: 'Employee Management' },
-    ],
-  },
-  { to: '/reports', label: 'Reports', icon: <BarChart3 size={18} /> },
   { to: '/company', label: 'Company', icon: <Building2 size={18} /> },
   { to: '/admin', label: 'Admin', icon: <ShieldCheck size={18} /> },
 ];
