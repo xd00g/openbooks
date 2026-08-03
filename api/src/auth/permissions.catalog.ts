@@ -106,9 +106,43 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
   {
     name: 'Accountant',
     description: 'Full books access, but cannot manage users or system settings.',
-    permissions: PERMISSION_KEYS.filter(
-      (k) => k !== 'user:manage' && k !== 'system:manage',
-    ),
+    // Deliberately a literal list, not `PERMISSION_KEYS.filter(...)`. A
+    // filter-based deny-list is a stale-permission trap that fails OPEN: the
+    // day someone adds a new key to PERMISSION_CATALOG above (the natural
+    // act of gating a new endpoint), that key is silently granted to every
+    // Accountant in every organization, with no signal at the edit site and
+    // no way to correct it afterwards (ensureSystemRoles only seeds roles
+    // for brand-new orgs; there is no role-edit endpoint). A literal
+    // allow-list fails CLOSED instead: a forgotten key is simply not
+    // granted, and the "system roles" test below asserts this exact array,
+    // so adding a permission trips a failing test that names Accountant and
+    // forces a human decision. Keep this list in the same order/grouping as
+    // PERMISSION_CATALOG so the two can be diffed by eye. Excludes
+    // 'user:manage' and 'system:manage' only.
+    permissions: [
+      // --- Core ---
+      'company:manage',
+      'account:manage',
+      'settings:manage',
+      // --- Documents ---
+      'sales:manage',
+      'expenses:manage',
+      'banking:manage',
+      'banking:reconcile',
+      'checks:manage',
+      'attachments:manage',
+      // --- Sensitive reads ---
+      'reports:view',
+      'payroll:view',
+      'attachments:view',
+      'audit:view',
+      // --- High risk ---
+      'period:close',
+      'payroll:manage',
+      'payroll:run',
+      'checks:print',
+      'checks:void',
+    ],
   },
   {
     name: 'Bookkeeper',
