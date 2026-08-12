@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AdminPrismaService } from './admin-prisma.service';
 import { CoaSeederService } from '../accounts/coa-seeder.service';
 import { AuthService } from './auth.service';
@@ -30,7 +30,30 @@ export class OnboardingService {
     private readonly enc: EncryptionService,
   ) {}
 
+  /**
+   * Self-serve org creation is off by default.
+   *
+   * This endpoint is @Public, and it mints an Owner holding `['*']`. On an
+   * internet-reachable deployment that is the entry point an attacker needs
+   * before they can start probing the org-admin surface, so it must be opted
+   * into rather than out of.
+   *
+   * The first org is always allowed: with no organizations yet there is nobody
+   * to attack and nobody who could flip the flag, so gating it unconditionally
+   * would leave a fresh install with no way to bootstrap.
+   */
+  private async assertSelfSignupAllowed(): Promise<void> {
+    if (process.env.ALLOW_SELF_SIGNUP === 'true') return;
+    const existing = await this.admin.organization.count();
+    if (existing === 0) return;
+    throw new ForbiddenException(
+      'Self-serve sign-up is disabled. Ask an administrator for an invitation.',
+    );
+  }
+
   async createOrganization(input: OnboardInput) {
+    await this.assertSelfSignupAllowed();
+
     if (!input.owner?.password) {
       throw new BadRequestException('Owner password is required.');
     }

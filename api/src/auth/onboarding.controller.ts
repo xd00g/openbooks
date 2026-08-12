@@ -5,8 +5,11 @@ import { CurrentUser, Public } from './decorators';
 
 /**
  * Onboarding / sign-up. Marked @Public so a new org can be created before any
- * session exists. In production gate this behind an invite code or restrict to
- * system admins — self-serve org creation is a policy decision (design §17).
+ * session exists.
+ *
+ * Self-serve org creation is gated in `OnboardingService.assertSelfSignupAllowed`:
+ * off unless `ALLOW_SELF_SIGNUP=true`, except for the very first organization so
+ * a fresh install can still bootstrap.
  */
 @ApiTags('onboarding')
 @Controller('onboarding')

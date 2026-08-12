@@ -128,6 +128,18 @@ export class AdminService {
         select: { organizationId: true },
       });
 
+      // `role` has no RLS, so an unfiltered id lookup would let this company
+      // attach another organization's role — and its permissions — to a
+      // membership. Validate before it is used in the upsert below.
+      const role = await tx.role.findFirst({
+        where: {
+          id: data.roleId,
+          OR: [{ organizationId: company!.organizationId }, { organizationId: null }],
+        },
+        select: { id: true },
+      });
+      if (!role) throw new BadRequestException('Role not found.');
+
       let user = await tx.user.findUnique({ where: { email: data.email } });
       if (!user) {
         if (!data.password) {
@@ -166,8 +178,13 @@ export class AdminService {
       });
       if (!m) throw new NotFoundException('Membership not found.');
 
+      // Scope to this org (or the built-in null-org roles): `role` has no RLS,
+      // so an unfiltered lookup lets a company adopt a foreign role definition.
       const target = await tx.role.findFirst({
-        where: { id: roleId },
+        where: {
+          id: roleId,
+          OR: [{ organizationId: m.organizationId }, { organizationId: null }],
+        },
         select: { permissions: true },
       });
       if (!target) throw new NotFoundException('Role not found.');

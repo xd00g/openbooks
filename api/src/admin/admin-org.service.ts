@@ -25,6 +25,37 @@ export class AdminOrgService {
     return c.organizationId;
   }
 
+  /**
+   * Prove the target user is inside the caller's organization, and return it.
+   *
+   * Every mutation here runs on the RLS-bypassing admin connection, and
+   * `PermissionsGuard` only ever checked `user:manage` against the caller's own
+   * X-Company-Id — it knows nothing about the `userId` in the path. So without
+   * this, an Owner of any org could reset the password of, deactivate, or
+   * unmember *any user in the deployment*.
+   *
+   * Deliberately NotFound rather than Forbidden: a distinguishable response
+   * would turn these endpoints into an oracle for which user ids exist.
+   */
+  private async assertUserInOrg(currentCompanyId: string, userId: string): Promise<string> {
+    const orgId = await this.orgId(currentCompanyId);
+    const member = await this.admin.membership.findFirst({
+      where: { userId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!member) throw new NotFoundException('User not found in this organization.');
+    return orgId;
+  }
+
+  /** Same, for a company referenced by id in the path/body. */
+  private async assertCompanyInOrg(orgId: string, targetCompanyId: string): Promise<void> {
+    const target = await this.admin.company.findFirst({
+      where: { id: targetCompanyId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!target) throw new NotFoundException('Company not found in this organization.');
+  }
+
   /** Every user with access somewhere in the org, plus their company memberships. */
   async listUsers(currentCompanyId: string) {
     const orgId = await this.orgId(currentCompanyId);
@@ -86,11 +117,13 @@ export class AdminOrgService {
   }
 
   async updateUser(
-    _currentCompanyId: string,
+    currentCompanyId: string,
     userId: string,
     data: { fullName?: string; isActive?: boolean },
     actingUserId?: string,
   ) {
+    await this.assertUserInOrg(currentCompanyId, userId);
+
     if (data.isActive === false) {
       if (actingUserId && actingUserId === userId) {
         throw new ConflictException('You cannot deactivate your own account.');
@@ -123,7 +156,8 @@ export class AdminOrgService {
     });
   }
 
-  async resetPassword(_currentCompanyId: string, userId: string, newPassword: string) {
+  async resetPassword(currentCompanyId: string, userId: string, newPassword: string) {
+    await this.assertUserInOrg(currentCompanyId, userId);
     if (!newPassword || newPassword.length < 8) throw new BadRequestException('Password must be at least 8 characters.');
     await this.admin.user.update({ where: { id: userId }, data: { passwordHash: hashPassword(newPassword) } });
     return { reset: true };
@@ -134,7 +168,12 @@ export class AdminOrgService {
     const orgId = await this.orgId(currentCompanyId);
     const target = await this.admin.company.findFirst({ where: { id: targetCompanyId, organizationId: orgId }, select: { id: true } });
     if (!target) throw new BadRequestException('That company is not in this organization.');
-    const role = await this.admin.role.findFirst({ where: { id: roleId } });
+    // Scope the role to this org (or the built-in null-org roles) — `role` has
+    // no RLS, so an unfiltered lookup lets a caller adopt another
+    // organization's role definition and whatever permissions it carries.
+    const role = await this.admin.role.findFirst({
+      where: { id: roleId, OR: [{ organizationId: orgId }, { organizationId: null }] },
+    });
     if (!role) throw new BadRequestException('Role not found.');
 
     // Only an update to an *existing* membership can orphan the company — a
@@ -161,7 +200,10 @@ export class AdminOrgService {
     });
   }
 
-  async removeMembership(_currentCompanyId: string, userId: string, targetCompanyId: string) {
+  async removeMembership(currentCompanyId: string, userId: string, targetCompanyId: string) {
+    const orgId = await this.assertUserInOrg(currentCompanyId, userId);
+    await this.assertCompanyInOrg(orgId, targetCompanyId);
+
     await assertWouldNotOrphanCompany(
       this.admin,
       targetCompanyId,
