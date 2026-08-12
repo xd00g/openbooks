@@ -10,24 +10,54 @@ Status: `open` · `in progress` · `done (<sha>)` · `won't fix`
 
 ---
 
-## 🚨 P0-URGENT — remotely exploitable account takeover (live)
+## ✅ P0-URGENT — remotely exploitable account takeover (CHAIN BROKEN 2026-08-12)
 
 `books.nebulys.net` is internet-reachable via the Cloudflare tunnel, and Caddy routes
-`/api/*`. The following is a complete chain from *anonymous internet* to *any account in
+`/api/*`. The following was a complete chain from *anonymous internet* to *any account in
 the deployment*, including a system admin.
+
+**Status: the chain is broken.** Fixed in `a4b1602`, deployed to VM1 as `0e51727` on
+2026-08-12. Verified after deploy: `/api/onboarding` → 403, 150 tests pass, typecheck
+clean, org/company/user counts unchanged at 1/4/5. The regression suite in
+`api/src/admin/__tests__/admin-org.scoping.spec.ts` was confirmed to **fail 6 of 7 against
+the unfixed code**, so it pins the hole rather than merely passing.
 
 | # | Finding | Evidence | Size | Status |
 |---|---|---|---|---|
-| **S1** | **`AdminOrgService` ignores the caller's organization.** Three of four org-scoped methods take `_currentCompanyId` and never use it, while running on the **RLS-bypassing** `AdminPrismaService`. `resetPassword` overwrites the password of an arbitrary `userId` deployment-wide. `PermissionsGuard` only validated `user:manage` against the attacker's *own* `X-Company-Id`. Siblings `updateUser` (deactivate anyone) and `removeMembership` (revoke anyone) have the same hole. The fourth method, `assignMembership:133`, does the check correctly — so this is an oversight, not design. | `admin-org.service.ts:126,88,164` | S | open |
-| **S2** | **`POST /api/onboarding` is `@Public()`** with no invite gate — its own docstring says "In production gate this behind an invite code", and no env flag exists. Anyone reaching the API mints an Owner with `permissions: ['*']`. This is the entry point that makes S1 exploitable by a stranger. | `onboarding.controller.ts:16` | S | open |
-| **S3** | **`addMember` is a deployment-wide email→userId oracle.** `app_user` and `role` have no RLS (by design, they're cross-tenant), so the lookup resolves any user in the deployment and returns their internal `userId`. `updateMemberRole` also accepts a **cross-org `roleId`** unfiltered. Turns S1 from "needs a UUID" into "needs an email address". | `admin.service.ts:131,169` | S | open |
+| **S1** | **`AdminOrgService` ignores the caller's organization.** Three of four org-scoped methods take `_currentCompanyId` and never use it, while running on the **RLS-bypassing** `AdminPrismaService`. `resetPassword` overwrites the password of an arbitrary `userId` deployment-wide. `PermissionsGuard` only validated `user:manage` against the attacker's *own* `X-Company-Id`. Siblings `updateUser` (deactivate anyone) and `removeMembership` (revoke anyone) have the same hole. The fourth method, `assignMembership:133`, does the check correctly — so this is an oversight, not design. | `admin-org.service.ts:126,88,164` | S | **done (`a4b1602`)** — `assertUserInOrg` / `assertCompanyInOrg` on all three. NotFound not Forbidden, and checked *before* input validation, so they don't become an id oracle. |
+| **S2** | **`POST /api/onboarding` is `@Public()`** with no invite gate — its own docstring says "In production gate this behind an invite code", and no env flag exists. Anyone reaching the API mints an Owner with `permissions: ['*']`. This is the entry point that makes S1 exploitable by a stranger. | `onboarding.controller.ts:16` | S | **done (`a4b1602`)** — gated behind `ALLOW_SELF_SIGNUP`, default off. The first org is always allowed so a fresh install can still bootstrap. |
+| **S3** | **`addMember` is a deployment-wide email→userId oracle.** `app_user` and `role` have no RLS (by design, they're cross-tenant), so the lookup resolves any user in the deployment and returns their internal `userId`. `updateMemberRole` also accepts a **cross-org `roleId`** unfiltered. Turns S1 from "needs a UUID" into "needs an email address". | `admin.service.ts:131,169` | S | ⚠️ **partial (`a4b1602`)** — see below. |
 
 **The chain:** self-register an org (S2) → submit the victim's email to `addMember` to learn
 their `userId` (S3) → `POST /admin/org/users/{id}/reset-password` (S1) → log in as them,
-into every company they belong to.
+into every company they belong to. **Broken at S2 and S1.**
+
+### ⚠️ S3 is only partially fixed — read this before closing it
+
+Fixed: the **cross-org `roleId`** hole, in both `addMember` and `updateMemberRole`. Every
+role lookup is now scoped to the caller's org or the built-in null-org roles. In
+`addMember` the caller-supplied id previously went straight into the membership upsert
+with no validation at all.
+
+**Not fixed: the email→userId oracle itself.** `addMember` still resolves any email in the
+deployment, because inviting an existing user by email is a legitimate flow — that's how
+you grant an accountant access to a second company. Closing it properly means replacing
+direct-add with an **invitation** flow (email a signed token; the membership is created
+when the invitee accepts), which is M-sized and a UX change, not a patch.
+
+This is acceptable *only because S1 closed the exploit the oracle fed*. On its own the
+oracle now leaks "an account with this email exists here" to someone who already holds
+`user:manage`. Track it as its own item rather than marking S3 done. `AdminOrgService.createUser:81`
+has the same tell (`"A user with that email already exists."`).
+
+### Still open — S4 through S9 are NOT fixed
+
+Breaking the takeover chain did not touch any of these. S4 in particular means every
+authenticated user, whatever their role, can still read the entire book.
 
 | # | Finding | Evidence | Size | Status |
 |---|---|---|---|---|
+| S9 | **Replace direct-add with an invitation flow**, closing the email→userId oracle left over from S3. Email a signed token; create the membership on accept. Also removes the `createUser` "already exists" tell. | `admin.service.ts:131`, `admin-org.service.ts:81` | M | open |
 | S4 | **No permission gate on core financial reads.** `permissions.coverage.spec.ts` only scans `@Post/@Patch/@Put/@Delete`; **GET handlers are entirely uncovered** and carry no `@RequirePermissions`. Any membership — even a custom role with no permissions — reads the full chart of accounts, every invoice, bill, customer, vendor, and `GET /accounts/:id/register`. `GET /company` returns the **decrypted EIN** while `PATCH /company` correctly requires `company:manage`. | `company.controller.ts:17`, `sales.controller.ts:48`, `accounts.controller.ts:27` | M | open |
 | S5 | **`payment_term` has no RLS on any deploy following the documented path.** An exhaustive diff of all 26 `companyId` models against the `tenant_tables` array found **exactly one gap**. Its policy lives only in `0004_payment_terms.sql`, which `apply-sql-migrations.sh` never runs (see X7). Live DB shows it as the only tenant table with `forcerowsecurity=f` — applied by hand, out of band. It appears **zero times** in the integration harness, so the net that caught `check` cannot catch this. | `accounting_core_constraints.sql:193`, `schema.prisma:636` | S | open |
 | S6 | **SSO links accounts by email with no `email_verified` check.** Against a multi-tenant or social IdP, an attacker setting an unverified email claim to a victim's address gets a session as that local user. This path also skips the `isActive` check that local login performs. *(OIDC verification itself is correct — JWKS signature, issuer, audience, expiry and nonce are all enforced.)* | `auth.service.ts:81`, `oidc.provider.ts:126` | S | open |
