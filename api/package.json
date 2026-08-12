@@ -15,6 +15,7 @@
     "db:constraints": "sh ../scripts/apply-sql-migrations.sh",
     "db:seed": "prisma db seed",
     "backfill:encryption": "ts-node scripts/backfill-encryption.ts",
+    "rekey:encryption": "ts-node scripts/rekey-encryption.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest",
