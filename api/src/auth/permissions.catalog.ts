@@ -57,6 +57,7 @@ export const PERMISSION_CATALOG: PermissionDef[] = [
   { key: 'payroll:run', group: 'High risk', label: 'Run payroll', description: 'Finalize, void and delete payroll runs.', risk: 'high' },
   { key: 'checks:print', group: 'High risk', label: 'Print checks', description: 'Assign check numbers and render check PDFs.', risk: 'high' },
   { key: 'checks:void', group: 'High risk', label: 'Void checks', description: 'Void a check, which posts a reversing journal entry.', risk: 'high' },
+  { key: 'company:delete', group: 'High risk', label: 'Delete a company', description: 'Permanently delete a company file and every record in it. Cannot be undone.', risk: 'high' },
 ];
 
 export const PERMISSION_KEYS: string[] = PERMISSION_CATALOG.map((p) => p.key);

@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
+  DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -133,5 +135,53 @@ export class AttachmentsService {
       );
       return { url, filename: a.filename, mimeType: a.mimeType, expiresIn: this.urlTtl };
     });
+  }
+
+  /**
+   * Delete every stored object belonging to a company.
+   *
+   * Used by the company purge. Deleting the `attachment` rows is not enough —
+   * the DB holds only metadata, so the bytes (receipts, invoice PDFs, branding)
+   * would survive in the bucket with nothing left pointing at them. For a purge
+   * motivated by data sensitivity that is the whole point of the exercise.
+   *
+   * Every key this service writes is namespaced `${companyId}/…` (see
+   * createUpload), and presignGet asserts that prefix on read, so the prefix is
+   * a sound tenant boundary to sweep. Returns the number of objects removed.
+   */
+  async deleteCompanyObjects(companyId: string): Promise<number> {
+    const prefix = `${companyId}/`;
+    let removed = 0;
+    let token: string | undefined;
+
+    do {
+      const page = await this.s3.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: token,
+        }),
+      );
+
+      const keys = (page.Contents ?? [])
+        .map((o) => o.Key)
+        .filter((k): k is string => !!k);
+
+      if (keys.length) {
+        // DeleteObjects caps at 1000 per call, which is also ListObjectsV2's
+        // page size — so one delete per page is always within the limit.
+        await this.s3.send(
+          new DeleteObjectsCommand({
+            Bucket: this.bucket,
+            Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+          }),
+        );
+        removed += keys.length;
+      }
+
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
+
+    return removed;
   }
 }

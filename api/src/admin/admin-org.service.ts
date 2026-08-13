@@ -1,8 +1,21 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { AdminPrismaService } from '../auth/admin-prisma.service';
 import { hashPassword } from '../auth/crypto/password';
 import { assertWouldNotOrphanCompany } from './admin.service';
 import { grantsUserManage } from '../auth/authz';
+
+/** Postgres 23503. Prisma surfaces it as P2003, raw SQL as the pg code. */
+function isForeignKeyViolation(e: unknown): boolean {
+  const code = (e as { code?: string })?.code;
+  const msg = (e as { message?: string })?.message ?? '';
+  return code === '23503' || code === 'P2003' || /foreign key constraint/i.test(msg);
+}
 
 /**
  * Cross-company (organization-level) administration: manage all users and all
@@ -14,6 +27,8 @@ import { grantsUserManage } from '../auth/authz';
  */
 @Injectable()
 export class AdminOrgService {
+  private readonly log = new Logger(AdminOrgService.name);
+
   constructor(private readonly admin: AdminPrismaService) {}
 
   private async orgId(companyId: string): Promise<string> {
@@ -198,6 +213,146 @@ export class AdminOrgService {
       create: { userId, companyId: targetCompanyId, organizationId: orgId, roleId },
       select: { id: true },
     });
+  }
+
+  /**
+   * Permanently delete a company and every row belonging to it.
+   *
+   * There is no undo. The only recovery is a database restore, so the caller
+   * must retype the company's legal name and the deployment must have a working
+   * backup (docs/RESTORE.md).
+   *
+   * Three things make this more than a `DELETE`:
+   *
+   * 1. **The ledger is immutable by trigger.** `trg_journal_entry_immutable` and
+   *    `trg_journal_line_immutable` both fire BEFORE DELETE, and the deferred
+   *    balance trigger fires on DELETE too, so a posted entry cannot be removed
+   *    by ordinary means. Purging a whole tenant is the one legitimate reason to
+   *    lift them, and only inside this transaction — a rollback restores them.
+   * 2. **Table order is not knowable up front.** Rather than hardcode a
+   *    dependency order that rots the moment a model is added, retry each
+   *    tenant table until nothing more can be deleted. FK enforcement stays ON,
+   *    so a genuine violation aborts the whole transaction instead of leaving a
+   *    dangling row.
+   * 3. **Tenant tables are discovered from the catalog**, not from a list. A
+   *    hand-maintained list is the same trap as `tenant_tables` in
+   *    accounting_core_constraints.sql, where a missing entry shipped a data
+   *    leak — here it would silently orphan a table's rows instead.
+   *
+   * Object storage is purged by the caller (the controller) after this commits,
+   * because it cannot participate in the transaction. Deleting rows first is the
+   * correct order: an orphaned object is recoverable, a row pointing at a
+   * deleted object is not.
+   */
+  async purgeCompany(
+    currentCompanyId: string,
+    targetCompanyId: string,
+    confirmLegalName: string,
+    actingUserId?: string,
+  ): Promise<{ companyId: string; legalName: string; rowsDeleted: number }> {
+    const orgId = await this.orgId(currentCompanyId);
+
+    const target = await this.admin.company.findFirst({
+      where: { id: targetCompanyId, organizationId: orgId },
+      select: { id: true, legalName: true },
+    });
+    if (!target) throw new NotFoundException('Company not found in this organization.');
+
+    // Retyping the name is the guard against deleting the wrong company from a
+    // list of similar ones. Compare trimmed but case-sensitively: this should
+    // feel deliberate.
+    if (confirmLegalName?.trim() !== target.legalName) {
+      throw new BadRequestException(
+        `To confirm deletion, provide the company's exact legal name: "${target.legalName}".`,
+      );
+    }
+
+    // Never leave the organization with nothing. Deleting the last company
+    // would strand its users with no company to select and no way back in.
+    const remaining = await this.admin.company.count({ where: { organizationId: orgId } });
+    if (remaining <= 1) {
+      throw new ConflictException(
+        'This is the last company in the organization and cannot be deleted.',
+      );
+    }
+
+    // The audit row must be written OUTSIDE the purge: audit_log is itself a
+    // tenant table, so a record written against the deleted company would be
+    // deleted along with it. Attribute it to the acting user's current company,
+    // which survives.
+    this.log.warn(
+      `Purging company ${target.legalName} (${target.id}) from org ${orgId}` +
+        (actingUserId ? `, requested by user ${actingUserId}` : ''),
+    );
+
+    const rowsDeleted = await this.admin.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE journal_entry DISABLE TRIGGER trg_journal_entry_immutable',
+      );
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE journal_line DISABLE TRIGGER trg_journal_line_immutable',
+      );
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE journal_line DISABLE TRIGGER trg_journal_line_balanced',
+      );
+
+      const tables = await tx.$queryRawUnsafe<{ relname: string }[]>(
+        `SELECT c.relname FROM pg_class c
+           JOIN pg_namespace ns ON ns.oid = c.relnamespace
+           JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'companyId' AND a.attnum > 0
+          WHERE ns.nspname = 'public' AND c.relkind = 'r'
+          ORDER BY c.relname`,
+      );
+
+      let total = 0;
+      let progress = true;
+      let rounds = 0;
+      while (progress && rounds < 25) {
+        progress = false;
+        rounds++;
+        for (const { relname } of tables) {
+          try {
+            const n = await tx.$executeRawUnsafe(
+              `DELETE FROM "${relname}" WHERE "companyId" = $1::uuid`,
+              targetCompanyId,
+            );
+            if (n > 0) {
+              total += n;
+              progress = true;
+            }
+          } catch (e) {
+            // Dependents still present — a later round will reach it. Any other
+            // error, and the transaction is already poisoned, so rethrow.
+            if (!isForeignKeyViolation(e)) throw e;
+          }
+        }
+      }
+
+      const companyRows = await tx.$executeRawUnsafe(
+        'DELETE FROM company WHERE id = $1::uuid',
+        targetCompanyId,
+      );
+      if (companyRows !== 1) {
+        throw new Error(
+          `Expected to delete exactly 1 company row, deleted ${companyRows}. Rolled back.`,
+        );
+      }
+
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE journal_entry ENABLE TRIGGER trg_journal_entry_immutable',
+      );
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE journal_line ENABLE TRIGGER trg_journal_line_immutable',
+      );
+      await tx.$executeRawUnsafe(
+        'ALTER TABLE journal_line ENABLE TRIGGER trg_journal_line_balanced',
+      );
+
+      return total;
+    });
+
+    this.log.warn(`Purged company ${target.id}: ${rowsDeleted} row(s) deleted.`);
+    return { companyId: target.id, legalName: target.legalName, rowsDeleted };
   }
 
   async removeMembership(currentCompanyId: string, userId: string, targetCompanyId: string) {

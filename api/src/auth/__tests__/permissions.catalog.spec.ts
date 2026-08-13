@@ -103,6 +103,7 @@ describe('permission catalog integrity', () => {
         'payroll:run',
         'checks:print',
         'checks:void',
+        'company:delete',
       ]),
     );
   });
@@ -211,6 +212,9 @@ describe('system roles', () => {
     const DELIBERATELY_WITHHELD = [
       'user:manage', // Accountant keeps the books; it does not administer people.
       'system:manage', // SSO/SMTP config is an operator concern, not an accounting one.
+      // Destroying a company file is an ownership decision, not a bookkeeping
+      // one, and it is unrecoverable without a database restore. Owner only.
+      'company:delete',
     ];
 
     const acct = SYSTEM_ROLES.find((r) => r.name === 'Accountant')!;

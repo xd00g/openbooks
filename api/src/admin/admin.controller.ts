@@ -12,6 +12,7 @@ import {
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AdminOrgService } from './admin-org.service';
+import { AttachmentsService } from '../attachments/attachments.service';
 import { CurrentUser, RequirePermissions } from '../auth/decorators';
 import { PERMISSION_CATALOG } from '../auth/permissions.catalog';
 
@@ -27,6 +28,7 @@ export class AdminController {
   constructor(
     private readonly svc: AdminService,
     private readonly org: AdminOrgService,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   // ---- Organization-wide (cross-company) management ----------------------
@@ -70,6 +72,50 @@ export class AdminController {
   @RequirePermissions('user:manage')
   orgRoles(@Headers('x-company-id') cid: string) {
     return this.org.listRoles(company(cid));
+  }
+
+  /**
+   * Permanently delete a company file and everything in it. No undo — recovery
+   * means restoring a database backup (docs/RESTORE.md).
+   *
+   * The caller must retype the exact legal name in the body. Refuses to delete
+   * the company you are currently working in, so the deletion is always made
+   * deliberately from somewhere else.
+   */
+  @Delete('org/companies/:id')
+  @RequirePermissions('company:delete')
+  async purgeCompany(
+    @Headers('x-company-id') cid: string,
+    @Param('id') id: string,
+    @Body() body: { confirmLegalName: string },
+    @CurrentUser() user: { id: string },
+  ) {
+    if (id === company(cid)) {
+      throw new BadRequestException(
+        'Switch to a different company before deleting this one.',
+      );
+    }
+
+    const result = await this.org.purgeCompany(
+      company(cid),
+      id,
+      body?.confirmLegalName,
+      user?.id,
+    );
+
+    // Only after the rows are gone. An orphaned object is recoverable; a row
+    // pointing at a deleted object is not — so storage is always cleaned last,
+    // and a failure here is reported rather than thrown, because the
+    // irreversible part already succeeded.
+    let objectsDeleted: number | null = null;
+    let storageError: string | undefined;
+    try {
+      objectsDeleted = await this.attachments.deleteCompanyObjects(id);
+    } catch (e) {
+      storageError = (e as Error).message;
+    }
+
+    return { ...result, objectsDeleted, storageError };
   }
 
   @Post('org/memberships')
